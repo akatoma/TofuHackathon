@@ -6,7 +6,7 @@ using UnityEngine;
 public class PlayerController : MonoBehaviour
 {
     [Header("Movement")]
-    public float moveSpeed = 10f;
+    public float moveSpeed = 15f;
     public float rotationSpeed = 720f;
 
     Rigidbody rb;
