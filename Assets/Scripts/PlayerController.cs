@@ -6,8 +6,8 @@ using UnityEngine;
 public class PlayerController : MonoBehaviour
 {
     [Header("Movement")]
-    public float moveSpeed = 15f;
-    public float rotationSpeed = 720f;
+    public float moveSpeed = 1f;
+    public float rotationSpeed = 600f;
 
     Rigidbody rb;
     Vector3 inputDirection = Vector3.zero;

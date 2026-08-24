@@ -51,5 +51,8 @@
         "temp/": true,
         "Temp/": true
     },
-    "dotnet.defaultSolution": "TofuHackathon.sln"
+    "dotnet.defaultSolution": "TofuHackathon.sln",
+    "chat.tools.terminal.autoApprove": {
+        "dotnet build": true
+    }
 }
