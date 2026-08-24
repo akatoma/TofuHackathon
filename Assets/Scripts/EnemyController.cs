@@ -4,6 +4,9 @@ using UnityEngine;
 
 public class EnemyController : MonoBehaviour
 {
+    [Header("仮置き")]
+    public GameObject panel;
+
     [Header("Tracking")]
     public float moveSpeed = 3f;
     public float moveDistance = 15f;
@@ -97,6 +100,7 @@ public class EnemyController : MonoBehaviour
 
         enemyBullet.damage = attackDamage;
         enemyBullet.lifetime = bulletLifetime;
+        enemyBullet.panel = panel; 
 
         nextAttackTime = Time.time + attackCooldown;
     }
@@ -106,20 +110,44 @@ class EnemyBullet : MonoBehaviour
 {
     public int damage;
     public float lifetime;
+    public GameObject panel;
 
     void Start()
     {
         Destroy(gameObject, lifetime);
     }
 
-    void OnCollisionEnter(Collision collision)
+    void OnTriggerEnter(Collider other)
     {
-        PlayerController player = collision.gameObject.GetComponentInParent<PlayerController>();
+        PlayerController player = other.gameObject.GetComponentInParent<PlayerController>();
         if (player != null)
         {
             // player.TakeDamage(damage);
+            Collider bulletCollider = GetComponent<Collider>();
+            if (bulletCollider != null)
+            {
+                bulletCollider.enabled = false;
+            }
+
+            StartCoroutine(PanelRoutine(0.3f)); // 仮ダメージ処理
+            return;
         }
 
+        Destroy(gameObject);
+    }
+
+    //仮ダメージ処理
+    private IEnumerator PanelRoutine(float seconds)
+    {
+        if (panel == null)
+        {
+            Destroy(gameObject);
+            yield break;
+        }
+
+        panel.SetActive(true);
+        yield return new WaitForSeconds(seconds); 
+        panel.SetActive(false);
         Destroy(gameObject);
     }
 }
