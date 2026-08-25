@@ -56,7 +56,7 @@ public class PlayerAttack : MonoBehaviour
                 continue;
             }
 
-            IDamageable damageable = hit.collider.GetComponentInParent<IDamageable>();
+            EnemyController damageable = hit.collider.GetComponentInParent<EnemyController>();
             if (damageable != null)
             {
                 damageable.TakeDamage(attackDamage);
