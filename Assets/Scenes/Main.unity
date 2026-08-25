@@ -350,7 +350,6 @@ MonoBehaviour:
   attackCooldown: 0.5
   maxHealth: 100
   currentHealth: 0
-  healthSlider: {fileID: 0}
   bulletTag: Bullet
   bulletDamage: 10
   onGameOver:
@@ -1201,6 +1200,7 @@ GameObject:
   - component: {fileID: 952679137}
   - component: {fileID: 952679136}
   - component: {fileID: 952679139}
+  - component: {fileID: 952679140}
   m_Layer: 0
   m_Name: GameManager
   m_TagString: Untagged
@@ -1345,7 +1345,35 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 911418a58c1975f4e8bc98397c193b9f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  playerController: {fileID: 364512199}
+  healthSlider: {fileID: 887541115}
+  gaugeSlider: {fileID: 0}
+  maxValue: 100
+  increaseOnSave: 10
+  increaseOnLoad: 10
+  onGameOver:
+    m_PersistentCalls:
+      m_Calls: []
   panel: {fileID: 1208181028}
+--- !u!114 &952679140
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 952679135}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 421a683f5af5cc44b9290c8b5dc490c0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  maxValue: 100
+  increaseOnSave: 10
+  increaseOnLoad: 10
+  gaugeSlider: {fileID: 0}
+  onGameOver:
+    m_PersistentCalls:
+      m_Calls: []
 --- !u!1 &1024694243
 GameObject:
   m_ObjectHideFlags: 0

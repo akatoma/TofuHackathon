@@ -7,7 +7,7 @@ using UnityEngine.UI;
 // マックスに達したらゲームオーバー処理(onGameOver)を呼ぶ。
 public class RewindGauge : MonoBehaviour
 {
-    [Header("Gauge Settings")]
+    [Header("Delusion Gauge")]
     public float maxValue = 100f;
     public float increaseOnSave = 10f; // セーブ(Q)1回あたりの増加量
     public float increaseOnLoad = 10f; // 巻き戻し(R)1回あたりの増加量
