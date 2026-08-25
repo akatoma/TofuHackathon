@@ -1,22 +1,32 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class GameManager : MonoBehaviour
 {
-    [Header("effect")]
+    [Header("References")]
+    public PlayerController playerController;
+    public Slider healthSlider;
+
+    [Header("Effect")]
     public GameObject panel;
     private Coroutine panelRoutine;
-    // Start is called before the first frame update
-    void Start()
+
+    void OnEnable()
     {
+        playerController.OnHealthChanged += HandleHealthChanged;
+        HandleHealthChanged(playerController.currentHealth, playerController.maxHealth);
         
     }
-
-    // Update is called once per frame
-    void Update()
+    void OnDisable()
     {
-        
+        playerController.OnHealthChanged -= HandleHealthChanged;
+    }
+    void HandleHealthChanged(int current, int max)
+    {
+        healthSlider.maxValue = max;
+        healthSlider.value = current;
     }
 
     public void ShowHitPanel(float seconds)
