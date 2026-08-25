@@ -18,7 +18,7 @@ public class EnemyController : MonoBehaviour,  ISnapshotable
     [Header("Tracking")]
     public float moveSpeed = 3f;
     public float moveDistance = 15f;
-    public float retreatDistance = 4f;
+    public float retreatDistance = 2f;
     public float retreatSpeed = 2f;
     public Transform target;
     bool isRetreating = false;
@@ -126,7 +126,8 @@ public class EnemyController : MonoBehaviour,  ISnapshotable
         {
             return;
         }
-
+        
+        GetComponent<AudioSource>().Play();
         direction.Normalize();
         GameObject bullet = Instantiate(
             bulletPrefab,
@@ -201,26 +202,18 @@ class EnemyBullet : MonoBehaviour
             {
                 bulletCollider.enabled = false;
             }
-
+            Destroy(gameObject);
             StartCoroutine(PanelRoutine(0.3f)); // 仮ダメージ処理
             return;
         }
-
         Destroy(gameObject);
     }
 
-    //仮ダメージ処理
+    //仮ダメージ処理コルーチン
     private IEnumerator PanelRoutine(float seconds)
     {
-        if (panel == null)
-        {
-            Destroy(gameObject);
-            yield break;
-        }
-
         panel.SetActive(true);
         yield return new WaitForSeconds(seconds); 
         panel.SetActive(false);
-        Destroy(gameObject);
     }
 }
