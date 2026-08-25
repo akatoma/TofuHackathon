@@ -193,15 +193,8 @@ class EnemyBullet : MonoBehaviour
         if (player != null)
         {
             // player.TakeDamage(damage);
-
-            GameManager panelController =
-                gameObject.GetComponentInParent<GameManager
-                >();
-
-            if (panelController != null)
-            {
-                panelController.ShowHitPanel(0.3f);
-            }
+            GameManager gameManager = FindObjectOfType<GameManager>();
+            gameManager.ShowHitPanel(0.3f);
             Destroy(gameObject);
             return;
         }
