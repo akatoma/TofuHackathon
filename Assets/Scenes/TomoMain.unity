@@ -612,6 +612,7 @@ GameObject:
   - component: {fileID: 1433996133}
   - component: {fileID: 1433996132}
   - component: {fileID: 1433996134}
+  - component: {fileID: 1433996135}
   m_Layer: 0
   m_Name: GameManager
   m_TagString: Untagged
@@ -744,6 +745,19 @@ AudioSource:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+--- !u!114 &1433996135
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1433996131}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 911418a58c1975f4e8bc98397c193b9f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  panel: {fileID: 0}
 --- !u!1 &1734657979
 GameObject:
   m_ObjectHideFlags: 0
@@ -912,6 +926,13 @@ MonoBehaviour:
   attackRange: 1.5
   attackRadius: 0.4
   attackCooldown: 0.5
+  maxHealth: 100
+  currentHealth: 0
+  bulletTag: Bullet
+  bulletDamage: 10
+  onGameOver:
+    m_PersistentCalls:
+      m_Calls: []
   attackOrigin: {fileID: 155652692}
   hittableLayers:
     serializedVersion: 2
@@ -1065,7 +1086,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7d1e38b68f0a46d43b3610d3166117bb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  panel: {fileID: 681174027}
   maxHealth: 50
   moveSpeed: 3
   moveDistance: 15
