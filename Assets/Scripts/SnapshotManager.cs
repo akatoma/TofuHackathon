@@ -16,6 +16,9 @@ public class SnapshotManager : MonoBehaviour
     // 他のシステム(ゲージなど)がセーブ/ロードのタイミングを知りたいときに購読するイベント
     public static event System.Action OnSnapshotSaved;
     public static event System.Action OnSnapshotLoaded;
+    public static event System.Action OnSnapshotCleared;
+
+    public bool HasSnapshot => hasSnapshot;
 
     [Header("Input")]
     public KeyCode saveKey = KeyCode.Q;
@@ -38,7 +41,15 @@ public class SnapshotManager : MonoBehaviour
     {
         if (Input.GetKeyDown(saveKey))
         {
-            SaveSnapshot();
+            // セーブデータが既にあれば削除、なければ新規に保存する(トグル式)
+            if (hasSnapshot)
+            {
+                ClearSnapshot();
+            }
+            else
+            {
+                SaveSnapshot();
+            }
         }
         else if (Input.GetKeyDown(loadKey))
         {
@@ -87,5 +98,14 @@ public class SnapshotManager : MonoBehaviour
         Debug.Log("[SnapshotManager] Restored.");
 
         OnSnapshotLoaded?.Invoke();
+    }
+
+    public void ClearSnapshot()
+    {
+        snapshot.Clear();
+        hasSnapshot = false;
+        Debug.Log("[SnapshotManager] セーブデータを削除しました。");
+
+        OnSnapshotCleared?.Invoke();
     }
 }
