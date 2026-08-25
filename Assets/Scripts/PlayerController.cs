@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Events;
 
 [RequireComponent(typeof(Rigidbody))]
 public class PlayerController : MonoBehaviour, ISnapshotable
@@ -17,6 +18,16 @@ public class PlayerController : MonoBehaviour, ISnapshotable
     public float attackCooldown = 0.5f; // 連打制限(秒)
     float nextAttackTime;
 
+    [Header("Health")]
+    public int maxHealth = 100;
+    public int currentHealth;
+
+    [Header("Bullet")]
+    public string bulletTag = "Bullet"; // BulletPrefab側にこのタグを付けておく
+    public int bulletDamage = 10;
+
+    [Header("Death")]
+    public UnityEvent onGameOver; // セーブがない状態で死亡した時の処理をInspectorで割り当てる
 
     [Header("References")]
     public Transform attackOrigin;      // Head(カメラ)のTransformをアサイン
@@ -37,6 +48,8 @@ public class PlayerController : MonoBehaviour, ISnapshotable
     Vector3 inputDirection = Vector3.zero;
     float yaw;
 
+    bool hasSaveAvailable = false; // Qで一度でもセーブされていればtrue
+
     class State
     {
         public Vector3 position;
@@ -52,12 +65,28 @@ public class PlayerController : MonoBehaviour, ISnapshotable
         rb.freezeRotation = true; // 衝突などで物理的に転倒しないようにする
 
         yaw = transform.eulerAngles.y;
+        currentHealth = maxHealth;
 
         if (lockCursor)
         {
             Cursor.lockState = CursorLockMode.Locked;
             Cursor.visible = false;
         }
+    }
+
+    void OnEnable()
+    {
+        SnapshotManager.OnSnapshotSaved += HandleSnapshotSaved;
+    }
+
+    void OnDisable()
+    {
+        SnapshotManager.OnSnapshotSaved -= HandleSnapshotSaved;
+    }
+
+    void HandleSnapshotSaved()
+    {
+        hasSaveAvailable = true;
     }
 
     void Update()
@@ -115,7 +144,7 @@ public class PlayerController : MonoBehaviour, ISnapshotable
         foreach (RaycastHit hit in hits)
         {
             // 自分自身(Playerの子オブジェクトなど)は除外
-            if (hit.collider.transform.root == transform.root)continue;
+            if (hit.collider.transform.root == transform.root) continue;
 
             EnemyController damageable = hit.collider.GetComponentInParent<EnemyController>();
             if (damageable != null)
@@ -129,9 +158,59 @@ public class PlayerController : MonoBehaviour, ISnapshotable
         // TODO: パンチのアニメーション再生、SE再生などをここに追加
     }
 
+    void OnTriggerEnter(Collider other)
+    {
+        // BulletPrefabのColliderが「Is Trigger」オンである前提。
+        // 物理衝突(Is Triggerオフ)の弾を使っている場合はOnCollisionEnterに変更してください
+        if (!other.CompareTag(bulletTag))
+        {
+            return;
+        }
+
+        TakeDamage(bulletDamage);
+    }
+
+    public void TakeDamage(int amount)
+    {
+        if (currentHealth <= 0)
+        {
+            return; // 既に死亡処理済み
+        }
+
+        currentHealth = Mathf.Max(currentHealth - amount, 0);
+        Debug.Log($"[PlayerController] Bullet hit. HP: {currentHealth}/{maxHealth}");
+
+        if (currentHealth <= 0)
+        {
+            HandleDeath();
+        }
+    }
+
+    void HandleDeath()
+    {
+        if (hasSaveAvailable && SnapshotManager.Instance != null)
+        {
+            Debug.Log("[PlayerController] セーブ地点まで強制的に巻き戻します。");
+            SnapshotManager.Instance.LoadSnapshot();
+
+            // Snapshotの仕組み自体は体力を扱っていないため、ここで直接全回復させる
+            currentHealth = maxHealth;
+        }
+        else
+        {
+            Debug.Log("[PlayerController] セーブがないためゲームオーバー。");
+            onGameOver?.Invoke();
+        }
+    }
+
     // Sceneビューで攻撃範囲を確認できるようにする
     void OnDrawGizmosSelected()
     {
+        if (attackOrigin == null)
+        {
+            return;
+        }
+
         Gizmos.color = Color.red;
         Vector3 origin = attackOrigin.position;
         Vector3 end = origin + attackOrigin.forward * attackRange;
@@ -147,7 +226,7 @@ public class PlayerController : MonoBehaviour, ISnapshotable
             position = rb.position,
             yaw = Yaw,
             pitch = cameraController.Pitch,
-            velocity = rb.velocity,       
+            velocity = rb.velocity,
             angularVelocity = rb.angularVelocity
         };
     }
@@ -161,7 +240,7 @@ public class PlayerController : MonoBehaviour, ISnapshotable
 
         rb.position = state.position;
         rb.rotation = Quaternion.Euler(0f, state.yaw, 0f);
-        rb.velocity = state.velocity;    
+        rb.velocity = state.velocity;
         rb.angularVelocity = state.angularVelocity;
 
         // Rigidbodyの回転だけでなく、PlayerController/CameraControllerが
