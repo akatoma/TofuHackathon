@@ -6,7 +6,7 @@ using UnityEngine;
 // IDamageable   : PlayerAttackから殴られたときにダメージを受ける
 // ISnapshotable : SnapshotManagerのQ/Rで状態を保存・復元される
 [RequireComponent(typeof(Collider))]
-public class EnemySaveAndDamage : MonoBehaviour, IDamageable, ISnapshotable
+public class EnemySaveAndDamage : MonoBehaviour,  ISnapshotable
 {
     [Header("Health")]
     public int maxHealth = 50;

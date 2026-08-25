@@ -2,10 +2,18 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class EnemyController : MonoBehaviour
+//敵のメイン挙動
+//敵オブジェクトにアタッチ
+
+public class EnemyController : MonoBehaviour,  ISnapshotable
 {
     [Header("仮置き")]
     public GameObject panel;
+
+    [Header("Health")]
+    public int maxHealth = 50;
+    int currentHealth;
+    bool isDead = false;
 
     [Header("Tracking")]
     public float moveSpeed = 3f;
@@ -13,6 +21,8 @@ public class EnemyController : MonoBehaviour
     public float retreatDistance = 4f;
     public float retreatSpeed = 2f;
     public Transform target;
+    bool isRetreating = false;
+
 
     [Header("Attack")]
     public int attackDamage = 10;
@@ -20,14 +30,22 @@ public class EnemyController : MonoBehaviour
     public float bulletSpeed = 15f;
     public float bulletLifetime = 3f;
     public GameObject bulletPrefab;
+    float nextAttackTime;
 
     Rigidbody enemyRb;
-    float nextAttackTime;
-    bool isRetreating = false;
+
+    class State
+    {
+        public Vector3 position;
+        public Quaternion rotation;
+        public int health;
+        public bool isDead;
+    }
 
     void Awake()
     {
         enemyRb = GetComponent<Rigidbody>();
+        currentHealth = maxHealth;
     }
 
 
@@ -36,7 +54,7 @@ public class EnemyController : MonoBehaviour
         Vector3 toTarget = target.position - enemyRb.position;
         toTarget.y = 0f;
         float distance = toTarget.magnitude;
-        Debug.Log(distance);
+        //Debug.Log(distance);
 
         if (distance <= retreatDistance)
         {
@@ -68,13 +86,39 @@ public class EnemyController : MonoBehaviour
         enemyRb.MoveRotation(Quaternion.LookRotation(toTarget.normalized, Vector3.up));
     }
 
+    public void TakeDamage(int amount)
+    {
+        if (isDead)
+        {
+            return;
+        }
+
+        currentHealth -= amount;
+        Debug.Log($"{name} took {amount} damage. Remaining: {currentHealth}");
+
+        if (currentHealth <= 0)
+        {
+            Die();
+        }
+    }
+    void Die()
+    {
+        isDead = true;
+        currentHealth = 0;
+
+        // Destroyではなく非アクティブ化することで、
+        // 巻き戻し(Rキー)でセーブ時点が「生存中」なら復活できるようにする
+        gameObject.SetActive(false);
+        Debug.Log($"{name} defeated.");
+    }
+
     void Attack()
     {
-        Debug.Log("Attack");
         if (Time.time < nextAttackTime)
         {
             return;
         }
+        nextAttackTime = Time.time + attackCooldown;
 
         Vector3 direction = target.position - transform.position;
         direction.y = 0f;
@@ -101,11 +145,40 @@ public class EnemyController : MonoBehaviour
         enemyBullet.damage = attackDamage;
         enemyBullet.lifetime = bulletLifetime;
         enemyBullet.panel = panel; 
+    }
 
-        nextAttackTime = Time.time + attackCooldown;
+    //保存
+    public object CaptureSnapshot()
+    {
+        return new State
+        {
+            position = transform.position,
+            rotation = transform.rotation,
+            health = currentHealth,
+            isDead = isDead
+        };
+    }
+
+    //復元
+    public void RestoreSnapshot(object snapshot)
+    {
+        if (snapshot is not State state)
+        {
+            return;
+        }
+
+        transform.position = state.position;
+        transform.rotation = state.rotation;
+        currentHealth = state.health;
+        isDead = state.isDead;
+
+        // セーブ時点で生きていたなら再アクティブ化、死んでいたなら非アクティブのまま
+        gameObject.SetActive(!isDead);
     }
 }
 
+
+//弾丸の挙動
 class EnemyBullet : MonoBehaviour
 {
     public int damage;
