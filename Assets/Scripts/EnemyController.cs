@@ -4,12 +4,10 @@ using UnityEngine;
 
 //敵のメイン挙動
 //敵オブジェクトにアタッチ
+//弾丸と当たり判定は後々お引越し☆
 
 public class EnemyController : MonoBehaviour,  ISnapshotable
 {
-    [Header("仮置き")]
-    public GameObject panel;
-
     [Header("Health")]
     public int maxHealth = 50;
     int currentHealth;
@@ -18,7 +16,7 @@ public class EnemyController : MonoBehaviour,  ISnapshotable
     [Header("Tracking")]
     public float moveSpeed = 3f;
     public float moveDistance = 15f;
-    public float retreatDistance = 4f;
+    public float retreatDistance = 2f;
     public float retreatSpeed = 2f;
     public Transform target;
     bool isRetreating = false;
@@ -126,7 +124,8 @@ public class EnemyController : MonoBehaviour,  ISnapshotable
         {
             return;
         }
-
+        
+        GetComponent<AudioSource>().Play();
         direction.Normalize();
         GameObject bullet = Instantiate(
             bulletPrefab,
@@ -144,7 +143,6 @@ public class EnemyController : MonoBehaviour,  ISnapshotable
 
         enemyBullet.damage = attackDamage;
         enemyBullet.lifetime = bulletLifetime;
-        enemyBullet.panel = panel; 
     }
 
     //保存
@@ -178,12 +176,11 @@ public class EnemyController : MonoBehaviour,  ISnapshotable
 }
 
 
-//弾丸の挙動
+//弾丸の挙動☆
 class EnemyBullet : MonoBehaviour
 {
     public int damage;
     public float lifetime;
-    public GameObject panel;
 
     void Start()
     {
@@ -196,31 +193,12 @@ class EnemyBullet : MonoBehaviour
         if (player != null)
         {
             // player.TakeDamage(damage);
-            Collider bulletCollider = GetComponent<Collider>();
-            if (bulletCollider != null)
-            {
-                bulletCollider.enabled = false;
-            }
-
-            StartCoroutine(PanelRoutine(0.3f)); // 仮ダメージ処理
+            GameManager gameManager = FindObjectOfType<GameManager>();
+            gameManager.ShowHitPanel(0.3f);
+            Destroy(gameObject);
             return;
         }
-
         Destroy(gameObject);
     }
-
-    //仮ダメージ処理
-    private IEnumerator PanelRoutine(float seconds)
-    {
-        if (panel == null)
-        {
-            Destroy(gameObject);
-            yield break;
-        }
-
-        panel.SetActive(true);
-        yield return new WaitForSeconds(seconds); 
-        panel.SetActive(false);
-        Destroy(gameObject);
-    }
+    
 }
