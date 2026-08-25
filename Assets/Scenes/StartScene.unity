@@ -1047,6 +1047,10 @@ MonoBehaviour:
   titlePanel: {fileID: 445381113}
   menuPanel: {fileID: 1485300572}
   gameSceneName: main
+<<<<<<< Updated upstream
+=======
+  hasAdvancedToMenu: 0
+>>>>>>> Stashed changes
 --- !u!4 &951382340
 Transform:
   m_ObjectHideFlags: 0
