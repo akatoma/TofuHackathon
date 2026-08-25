@@ -4,12 +4,10 @@ using UnityEngine;
 
 //敵のメイン挙動
 //敵オブジェクトにアタッチ
+//弾丸と当たり判定は後々お引越し☆
 
 public class EnemyController : MonoBehaviour,  ISnapshotable
 {
-    [Header("仮置き")]
-    public GameObject panel;
-
     [Header("Health")]
     public int maxHealth = 50;
     int currentHealth;
@@ -145,7 +143,6 @@ public class EnemyController : MonoBehaviour,  ISnapshotable
 
         enemyBullet.damage = attackDamage;
         enemyBullet.lifetime = bulletLifetime;
-        enemyBullet.panel = panel; 
     }
 
     //保存
@@ -179,12 +176,11 @@ public class EnemyController : MonoBehaviour,  ISnapshotable
 }
 
 
-//弾丸の挙動
+//弾丸の挙動☆
 class EnemyBullet : MonoBehaviour
 {
     public int damage;
     public float lifetime;
-    public GameObject panel;
 
     void Start()
     {
@@ -197,23 +193,19 @@ class EnemyBullet : MonoBehaviour
         if (player != null)
         {
             // player.TakeDamage(damage);
-            Collider bulletCollider = GetComponent<Collider>();
-            if (bulletCollider != null)
+
+            GameManager panelController =
+                gameObject.GetComponentInParent<GameManager
+                >();
+
+            if (panelController != null)
             {
-                bulletCollider.enabled = false;
+                panelController.ShowHitPanel(0.3f);
             }
             Destroy(gameObject);
-            StartCoroutine(PanelRoutine(0.3f)); // 仮ダメージ処理
             return;
         }
         Destroy(gameObject);
     }
-
-    //仮ダメージ処理コルーチン
-    private IEnumerator PanelRoutine(float seconds)
-    {
-        panel.SetActive(true);
-        yield return new WaitForSeconds(seconds); 
-        panel.SetActive(false);
-    }
+    
 }
