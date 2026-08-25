@@ -29,6 +29,9 @@ public class PlayerController : MonoBehaviour, ISnapshotable
     [Header("Death")]
     public UnityEvent onGameOver; // セーブがない状態で死亡した時の処理をInspectorで割り当てる
 
+    // 体力が変化するたびに(current, max)を通知する。UI側はこれを購読するだけでよい
+    public event System.Action<int, int> OnHealthChanged;
+
     [Header("References")]
     public Transform attackOrigin;      // Head(カメラ)のTransformをアサイン
     public LayerMask hittableLayers = ~0; // Playerレイヤーは除外しておくこと
@@ -57,6 +60,7 @@ public class PlayerController : MonoBehaviour, ISnapshotable
         public float pitch;
         public Vector3 velocity;
         public Vector3 angularVelocity;
+        public int health;
     }
 
     void Awake()
@@ -66,6 +70,7 @@ public class PlayerController : MonoBehaviour, ISnapshotable
 
         yaw = transform.eulerAngles.y;
         currentHealth = maxHealth;
+        OnHealthChanged?.Invoke(currentHealth, maxHealth);
 
         if (lockCursor)
         {
@@ -179,6 +184,7 @@ public class PlayerController : MonoBehaviour, ISnapshotable
 
         currentHealth = Mathf.Max(currentHealth - amount, 0);
         Debug.Log($"[PlayerController] Bullet hit. HP: {currentHealth}/{maxHealth}");
+        OnHealthChanged?.Invoke(currentHealth, maxHealth);
 
         if (currentHealth <= 0)
         {
@@ -192,9 +198,7 @@ public class PlayerController : MonoBehaviour, ISnapshotable
         {
             Debug.Log("[PlayerController] セーブ地点まで強制的に巻き戻します。");
             SnapshotManager.Instance.LoadSnapshot();
-
-            // Snapshotの仕組み自体は体力を扱っていないため、ここで直接全回復させる
-            currentHealth = maxHealth;
+            // HPはRestoreSnapshot内でセーブ時点の値に復元される
         }
         else
         {
@@ -227,7 +231,8 @@ public class PlayerController : MonoBehaviour, ISnapshotable
             yaw = Yaw,
             pitch = cameraController.Pitch,
             velocity = rb.velocity,
-            angularVelocity = rb.angularVelocity
+            angularVelocity = rb.angularVelocity,
+            health = currentHealth
         };
     }
 
@@ -248,5 +253,9 @@ public class PlayerController : MonoBehaviour, ISnapshotable
         // 次のフレームで元の向きに上書きされてしまう)
         Yaw = state.yaw;
         cameraController.Pitch = state.pitch;
+
+        // HPもセーブ時点の値に戻す(HPスライダーにも通知する)
+        currentHealth = state.health;
+        OnHealthChanged?.Invoke(currentHealth, maxHealth);
     }
 }
