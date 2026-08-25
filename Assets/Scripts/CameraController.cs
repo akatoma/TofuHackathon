@@ -10,6 +10,13 @@ public class CameraController : MonoBehaviour
     public float minPitch = -80f;
     public float maxPitch = 80f;
 
+    // セーブ/巻き戻し(PlayerSnapshot)からこの値を読み書きできるようにする
+    public float Pitch
+    {
+        get => pitch;
+        set => pitch = value;
+    }
+
     float pitch = 0f;
 
     void Start()

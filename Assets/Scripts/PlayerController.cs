@@ -10,6 +10,15 @@ public class PlayerController : MonoBehaviour
     public float mouseSensitivity = 220f;
     public bool lockCursor = true;
 
+    // セーブ/巻き戻し(PlayerSnapshot)からこの値を読み書きできるようにする。
+    // これをRigidbodyの回転と一緒に復元しないと、次のFixedUpdateで
+    // 巻き戻し前のyawに上書きされてしまう
+    public float Yaw
+    {
+        get => yaw;
+        set => yaw = value;
+    }
+
     Rigidbody rb;
     Vector3 inputDirection = Vector3.zero;
     float yaw;
