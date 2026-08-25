@@ -13,6 +13,10 @@ public class SnapshotManager : MonoBehaviour
 {
     public static SnapshotManager Instance { get; private set; }
 
+    // 他のシステム(ゲージなど)がセーブ/ロードのタイミングを知りたいときに購読するイベント
+    public static event System.Action OnSnapshotSaved;
+    public static event System.Action OnSnapshotLoaded;
+
     [Header("Input")]
     public KeyCode saveKey = KeyCode.Q;
     public KeyCode loadKey = KeyCode.R; // 巻き戻しキー。要件があれば変更してください
@@ -55,6 +59,8 @@ public class SnapshotManager : MonoBehaviour
 
         hasSnapshot = true;
         Debug.Log($"[SnapshotManager] Saved. Targets: {snapshot.Count}");
+
+        OnSnapshotSaved?.Invoke();
     }
 
     public void LoadSnapshot()
@@ -79,5 +85,7 @@ public class SnapshotManager : MonoBehaviour
         }
 
         Debug.Log("[SnapshotManager] Restored.");
+
+        OnSnapshotLoaded?.Invoke();
     }
 }
