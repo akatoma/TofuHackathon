@@ -41,15 +41,11 @@ public class PlayerController : MonoBehaviour, ISnapshotable
     // セーブ/巻き戻しからこの値を読み書きできるようにする。
     // これをRigidbodyの回転と一緒に復元しないと、次のFixedUpdateで
     // 巻き戻し前のyawに上書きされてしまう
-    public float Yaw
-    {
-        get => yaw;
-        set => yaw = value;
-    }
+    // float yaw; を削除し、こちらに統一
+    public float Yaw { get; set; }
 
     Rigidbody rb;
     Vector3 inputDirection = Vector3.zero;
-    float yaw;
 
     bool hasSaveAvailable = false; // Qで一度でもセーブされていればtrue
 
@@ -65,7 +61,7 @@ public class PlayerController : MonoBehaviour, ISnapshotable
 
     void Awake()
     {
-        yaw = transform.eulerAngles.y;
+        Yaw = transform.eulerAngles.y;
         currentHealth = maxHealth;
         OnHealthChanged?.Invoke(currentHealth, maxHealth);
 
@@ -102,7 +98,7 @@ public class PlayerController : MonoBehaviour, ISnapshotable
             inputDirection.Normalize();
         }
         // 一人称視点なので、体の左右回転(Yaw)はプレイヤー自身がマウスXから直接受け取る
-        yaw += Input.GetAxis("Mouse X") * mouseSensitivity * Time.deltaTime;
+        Yaw += Input.GetAxis("Mouse X") * mouseSensitivity * Time.deltaTime;
     
         if (Input.GetMouseButtonDown(0))
         {
@@ -114,7 +110,7 @@ public class PlayerController : MonoBehaviour, ISnapshotable
     {
         rb = GetComponent<Rigidbody>();
 
-        Quaternion rotation = Quaternion.Euler(0f, yaw, 0f);
+        Quaternion rotation = Quaternion.Euler(0f, Yaw, 0f);
         rb.MoveRotation(rotation);
 
         Vector3 forward = rotation * Vector3.forward;
