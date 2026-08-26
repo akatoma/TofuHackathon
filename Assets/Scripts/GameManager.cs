@@ -13,14 +13,13 @@ public class GameManager : MonoBehaviour
 
     [Header("Delusion Gauge")]
     public float maxValue = 100f;
+    float currentValue = 0f;
     public float increaseOnSave = 10f; // セーブ(Q)1回あたりの増加量
     public float increaseOnLoad = 10f; // 巻き戻し(R)1回あたりの増加量
 
     [Header("Game Over")]
     public UnityEvent onGameOver; // ゲームオーバー時の処理をInspectorで割り当てる
-                                   // (例: GameOverパネルの表示、シーン遷移など)
-
-    float currentValue = 0f;
+                                  // (例: GameOverパネルの表示、シーン遷移など)
     bool isGameOver = false;
 
     [Header("Effect")]
@@ -30,7 +29,8 @@ public class GameManager : MonoBehaviour
 
     void Start()
     {
-        UpdateUI();
+        gaugeSlider.maxValue = maxValue;
+        gaugeSlider.value = currentValue;
     }
 
     void OnEnable()
@@ -40,15 +40,17 @@ public class GameManager : MonoBehaviour
 
         SnapshotManager.OnSnapshotSaved += HandleSaved;
         SnapshotManager.OnSnapshotLoaded += HandleLoaded;
-        
+
     }
     void OnDisable()
     {
         playerController.OnHealthChanged -= HandleHealthChanged;
-        
+
         SnapshotManager.OnSnapshotSaved -= HandleSaved;
         SnapshotManager.OnSnapshotLoaded -= HandleLoaded;
     }
+
+    //UI
     void HandleHealthChanged(int current, int max)
     {
         healthSlider.maxValue = max;
@@ -64,13 +66,10 @@ public class GameManager : MonoBehaviour
     }
     void Increase(float amount)
     {
-        if (isGameOver)
-        {
-            return;
-        }
+        if (isGameOver) return;
 
         currentValue = Mathf.Min(currentValue + amount, maxValue);
-        UpdateUI();
+        gaugeSlider.value = currentValue;
 
         if (currentValue >= maxValue)
         {
@@ -78,15 +77,7 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    void UpdateUI()
-    {
-        if (gaugeSlider != null)
-        {
-            gaugeSlider.maxValue = maxValue;
-            gaugeSlider.value = currentValue;
-        }
-    }
-
+    //GameOver
     void TriggerGameOver()
     {
         isGameOver = true;
@@ -94,6 +85,7 @@ public class GameManager : MonoBehaviour
         onGameOver?.Invoke();
     }
 
+    //Playerの被ダメEffect
     public void ShowHitPanel(float seconds)
     {
         if (panelRoutine != null)

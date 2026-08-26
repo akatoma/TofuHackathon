@@ -86,10 +86,7 @@ public class EnemyController : MonoBehaviour,  ISnapshotable
 
     public void TakeDamage(int amount)
     {
-        if (isDead)
-        {
-            return;
-        }
+        if (isDead) return;
 
         currentHealth -= amount;
         Debug.Log($"{name} took {amount} damage. Remaining: {currentHealth}");
@@ -127,6 +124,7 @@ public class EnemyController : MonoBehaviour,  ISnapshotable
         
         GetComponent<AudioSource>().Play();
         direction.Normalize();
+
         GameObject bullet = Instantiate(
             bulletPrefab,
             transform.position + direction * 0.8f,
@@ -172,6 +170,10 @@ public class EnemyController : MonoBehaviour,  ISnapshotable
 
         // セーブ時点で生きていたなら再アクティブ化、死んでいたなら非アクティブのまま
         gameObject.SetActive(!isDead);
+        
+        //弾丸の削除
+        // EnemyBullet bullets = GetComponent<EnemyBullet>();
+        // Destroy(bullets);
     }
 }
 
@@ -189,15 +191,6 @@ class EnemyBullet : MonoBehaviour
 
     void OnTriggerEnter(Collider other)
     {
-        PlayerController player = other.gameObject.GetComponentInParent<PlayerController>();
-        if (player != null)
-        {
-            // player.TakeDamage(damage);
-            GameManager gameManager = FindObjectOfType<GameManager>();
-            gameManager.ShowHitPanel(0.3f);
-            Destroy(gameObject);
-            return;
-        }
         Destroy(gameObject);
     }
     
