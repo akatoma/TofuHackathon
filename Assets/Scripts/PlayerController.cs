@@ -112,6 +112,8 @@ public class PlayerController : MonoBehaviour, ISnapshotable
 
     void FixedUpdate()
     {
+        rb = GetComponent<Rigidbody>();
+
         Quaternion rotation = Quaternion.Euler(0f, yaw, 0f);
         rb.MoveRotation(rotation);
 

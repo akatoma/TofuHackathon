@@ -1274,7 +1274,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   playerController: {fileID: 153209187}
   healthSlider: {fileID: 906499941}
-  gaugeSlider: {fileID: 0}
+  gaugeSlider: {fileID: 1250693600}
   maxValue: 100
   increaseOnSave: 10
   increaseOnLoad: 10
@@ -1418,7 +1418,7 @@ GameObject:
   - component: {fileID: 1250693599}
   - component: {fileID: 1250693600}
   m_Layer: 5
-  m_Name: Slider
+  m_Name: DelusionSlider
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

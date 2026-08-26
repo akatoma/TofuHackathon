@@ -86,10 +86,7 @@ public class EnemyController : MonoBehaviour,  ISnapshotable
 
     public void TakeDamage(int amount)
     {
-        if (isDead)
-        {
-            return;
-        }
+        if (isDead) return;
 
         currentHealth -= amount;
         Debug.Log($"{name} took {amount} damage. Remaining: {currentHealth}");
@@ -173,6 +170,10 @@ public class EnemyController : MonoBehaviour,  ISnapshotable
 
         // セーブ時点で生きていたなら再アクティブ化、死んでいたなら非アクティブのまま
         gameObject.SetActive(!isDead);
+        
+        //弾丸の削除
+        // EnemyBullet bullets = GetComponent<EnemyBullet>();
+        // Destroy(bullets);
     }
 }
 
