@@ -43,7 +43,6 @@ public class EnemyController : MonoBehaviour, ISnapshotable, IFreezable
     [Header("Save-State Highlight")]
     public Color highlightColor = Color.red; // セーブがある間、この色でEmission発光させる
     public float highlightIntensity = 2f;
-
     Renderer[] renderers;
     MaterialPropertyBlock propBlock;
     static readonly int EmissionColorId = Shader.PropertyToID("_EmissionColor");
@@ -55,6 +54,10 @@ public class EnemyController : MonoBehaviour, ISnapshotable, IFreezable
     // TimeStopSkillによる速度倍率。1=通常速度、0=完全停止。瞬時ではなく徐々に変化する
     float speedScale = 1f;
     Coroutine speedTransitionCoroutine;
+
+    [Header("Audio")]
+    public AudioSource audioBullet;
+    public AudioSource audioHand;
 
     class State
     {
@@ -134,7 +137,6 @@ public class EnemyController : MonoBehaviour, ISnapshotable, IFreezable
         Vector3 toTarget = target.position - enemyRb.position;
         toTarget.y = 0f;
         float distance = toTarget.magnitude;
-        //Debug.Log(distance);
 
         if (distance <= retreatDistance)
         {
@@ -181,6 +183,11 @@ public class EnemyController : MonoBehaviour, ISnapshotable, IFreezable
         currentHealth -= amount;
         Debug.Log($"{name} took {amount} damage. Remaining: {currentHealth}");
 
+        audioHand.Play();
+
+        // ダメージ時の赤色点滅処理を呼び出し
+        FlashRed();
+
         if (!hasBeenHit)
         {
             hasBeenHit = true;
@@ -214,11 +221,20 @@ public class EnemyController : MonoBehaviour, ISnapshotable, IFreezable
         {
             return;
         }
-        
-        GetComponent<AudioSource>().Play();
+
+        audioBullet.Play();
         direction.Normalize();
-        GameObject bullet = Instantiate(
-            bulletPrefab,
+        EnemyBullet enemyBullet = BulletPool.Instance.Spawn(bulletPrefab);
+
+        if (speedScale < 1f)
+        {
+            FreezableRigidbody freezable = enemyBullet.GetComponent<FreezableRigidbody>();
+            if (freezable != null)
+            {
+                freezable.InitializeFrozen(speedScale);
+            }
+        }
+        enemyBullet.Fire(
             transform.position + direction * 0.8f,
             Quaternion.LookRotation(direction, Vector3.up) * Quaternion.Euler(90f, 0f, 0f));
 
