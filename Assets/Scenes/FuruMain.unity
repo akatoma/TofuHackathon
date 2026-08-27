@@ -1341,7 +1341,6 @@ GameObject:
   - component: {fileID: 1888954068}
   - component: {fileID: 1888954067}
   - component: {fileID: 1888954071}
-  - component: {fileID: 1888954072}
   m_Layer: 0
   m_Name: GameManager
   m_TagString: Untagged
@@ -1367,22 +1366,15 @@ MonoBehaviour:
   maxValue: 100
   increaseOnSave: 10
   increaseOnLoad: 10
+  panel: {fileID: 931528893}
+  player: {fileID: 0}
+  ripplePrefab: {fileID: 0}
+  darkenOverlay: {fileID: 0}
+  darkenTargetAlpha: 0.6
+  darkenFadeDuration: 0.5
   onGameOver:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 1888954071}
-        m_TargetAssemblyTypeName: SceneLoader, Assembly-CSharp
-        m_MethodName: LoadScene
-        m_Mode: 5
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: GameoverScene
-          m_BoolArgument: 0
-        m_CallState: 2
-  panel: {fileID: 931528893}
+      m_Calls: []
 --- !u!82 &1888954068
 AudioSource:
   m_ObjectHideFlags: 0
@@ -1493,6 +1485,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   saveKey: 113
   loadKey: 114
+  stopKey: 101
+  duration: 3
+  playerTransform: {fileID: 0}
 --- !u!4 &1888954070
 Transform:
   m_ObjectHideFlags: 0
@@ -1517,26 +1512,13 @@ MonoBehaviour:
   m_GameObject: {fileID: 1888954066}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f06ed5c05b40c1488b3d07a8759f882, type: 3}
+  m_Script: {fileID: 11500000, guid: 5650d8275610c814fbcc79e9f176a0d6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
---- !u!114 &1888954072
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1888954066}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a4eea909c5b505048a6ce22b797a043e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  player: {fileID: 2048833669}
-  ripplePrefab: {fileID: 5860846516910122684, guid: 0c4428e3e26b4c14baa423417cad63e7, type: 3}
-  darkenOverlay: {fileID: 655703205}
-  darkenTargetAlpha: 0.6
-  darkenFadeDuration: 0.5
+  allyPrefabs: []
+  spawnPoints: []
+  spawnParent: {fileID: 0}
+  spawnOnStart: 1
 --- !u!1 &1894184467
 GameObject:
   m_ObjectHideFlags: 0
@@ -1879,19 +1861,7 @@ MonoBehaviour:
   bulletDamage: 10
   onGameOver:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 1888954071}
-        m_TargetAssemblyTypeName: SceneLoader, Assembly-CSharp
-        m_MethodName: LoadScene
-        m_Mode: 5
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: GameoverScene
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
   attackOrigin: {fileID: 182541659}
   hittableLayers:
     serializedVersion: 2
