@@ -890,6 +890,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   maxHealth: 50
   healthBar: {fileID: 183157221}
+  flashDuration: 0.25
+  flashColor: {r: 1, g: 0, b: 0, a: 1}
   moveSpeed: 3
   moveDistance: 15
   retreatDistance: 4
@@ -972,7 +974,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 02fee027a3ba8c547b3dabecae1e0b3a, type: 2}
+  - {fileID: 2100000, guid: f26705d77b3d4934a873dc2591e0f2b7, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
