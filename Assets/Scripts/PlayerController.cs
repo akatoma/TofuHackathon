@@ -7,7 +7,7 @@ public class PlayerController : MonoBehaviour, ISnapshotable
     [Header("Movement")]
     public float moveSpeed = 7f;
 
-    [Header("Mouse Look (Yaw)")]
+    [Header("Look (Yaw)")]
     public float mouseSensitivity = 220f;
     public bool lockCursor = true;
 
@@ -38,18 +38,14 @@ public class PlayerController : MonoBehaviour, ISnapshotable
     public CameraController cameraController;
 
 
-    // セーブ/巻き戻し(PlayerSnapshot)からこの値を読み書きできるようにする。
+    // セーブ/巻き戻しからこの値を読み書きできるようにする。
     // これをRigidbodyの回転と一緒に復元しないと、次のFixedUpdateで
     // 巻き戻し前のyawに上書きされてしまう
-    public float Yaw
-    {
-        get => yaw;
-        set => yaw = value;
-    }
+    // float yaw; を削除し、こちらに統一
+    public float Yaw { get; set; }
 
     Rigidbody rb;
     Vector3 inputDirection = Vector3.zero;
-    float yaw;
 
     bool hasSaveAvailable = false; // Qで一度でもセーブされていればtrue
 
@@ -65,10 +61,7 @@ public class PlayerController : MonoBehaviour, ISnapshotable
 
     void Awake()
     {
-        rb = GetComponent<Rigidbody>();
-        rb.freezeRotation = true; // 衝突などで物理的に転倒しないようにする
-
-        yaw = transform.eulerAngles.y;
+        Yaw = transform.eulerAngles.y;
         currentHealth = maxHealth;
         OnHealthChanged?.Invoke(currentHealth, maxHealth);
 
@@ -112,7 +105,7 @@ public class PlayerController : MonoBehaviour, ISnapshotable
             inputDirection.Normalize();
         }
         // 一人称視点なので、体の左右回転(Yaw)はプレイヤー自身がマウスXから直接受け取る
-        yaw += Input.GetAxis("Mouse X") * mouseSensitivity * Time.deltaTime;
+        Yaw += Input.GetAxis("Mouse X") * mouseSensitivity * Time.deltaTime;
     
         if (Input.GetMouseButtonDown(0))
         {
@@ -122,7 +115,9 @@ public class PlayerController : MonoBehaviour, ISnapshotable
 
     void FixedUpdate()
     {
-        Quaternion rotation = Quaternion.Euler(0f, yaw, 0f);
+        rb = GetComponent<Rigidbody>();
+
+        Quaternion rotation = Quaternion.Euler(0f, Yaw, 0f);
         rb.MoveRotation(rotation);
 
         Vector3 forward = rotation * Vector3.forward;
@@ -137,6 +132,7 @@ public class PlayerController : MonoBehaviour, ISnapshotable
         rb.MovePosition(rb.position + move * moveSpeed * Time.fixedDeltaTime);
     }
 
+    //攻撃
     void Attack()
     {
         if (Time.time < nextAttackTime)
@@ -164,30 +160,20 @@ public class PlayerController : MonoBehaviour, ISnapshotable
                 damageable.TakeDamage(attackDamage);
                 hitCount++;
             }
-            Debug.Log($"[PlayerAttack] Attack fired. Hits: {hitCount}");
         }
-
-        // TODO: パンチのアニメーション再生、SE再生などをここに追加
     }
-
-    void OnTriggerEnter(Collider other)
+    void OnTriggerEnter(Collider collider)
     {
-        // BulletPrefabのColliderが「Is Trigger」オンである前提。
-        // 物理衝突(Is Triggerオフ)の弾を使っている場合はOnCollisionEnterに変更してください
-        if (!other.CompareTag(bulletTag))
+        if (collider.CompareTag(bulletTag))
         {
-            return;
+            TakeDamage(bulletDamage);
+            GameManager gameManager = FindObjectOfType<GameManager>();
+            gameManager.ShowHitPanel(0.3f);
         }
-
-        TakeDamage(bulletDamage);
     }
-
     public void TakeDamage(int amount)
     {
-        if (currentHealth <= 0)
-        {
-            return; // 既に死亡処理済み
-        }
+        if (currentHealth <= 0) return;
 
         currentHealth = Mathf.Max(currentHealth - amount, 0);
         Debug.Log($"[PlayerController] Bullet hit. HP: {currentHealth}/{maxHealth}");
@@ -199,13 +185,13 @@ public class PlayerController : MonoBehaviour, ISnapshotable
         }
     }
 
+    //Player死亡時の遷移
     void HandleDeath()
     {
         if (hasSaveAvailable && SnapshotManager.Instance != null)
         {
             Debug.Log("[PlayerController] セーブ地点まで強制的に巻き戻します。");
             SnapshotManager.Instance.LoadSnapshot();
-            // HPはRestoreSnapshot内でセーブ時点の値に復元される
         }
         else
         {
@@ -214,14 +200,9 @@ public class PlayerController : MonoBehaviour, ISnapshotable
         }
     }
 
-    // Sceneビューで攻撃範囲を確認できるようにする
+    // Sceneビューで攻撃範囲を確認できる
     void OnDrawGizmosSelected()
     {
-        if (attackOrigin == null)
-        {
-            return;
-        }
-
         Gizmos.color = Color.red;
         Vector3 origin = attackOrigin.position;
         Vector3 end = origin + attackOrigin.forward * attackRange;
@@ -230,6 +211,7 @@ public class PlayerController : MonoBehaviour, ISnapshotable
         Gizmos.DrawLine(origin, end);
     }
 
+    //保存
     public object CaptureSnapshot()
     {
         return new State
@@ -243,6 +225,7 @@ public class PlayerController : MonoBehaviour, ISnapshotable
         };
     }
 
+    //復元
     public void RestoreSnapshot(object snapshot)
     {
         if (snapshot is not State state)
