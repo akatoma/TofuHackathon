@@ -200,7 +200,7 @@ public class SnapshotManager : MonoBehaviour
                 continue; // ループ内なら continue;
             }
 
-            target.Freeze();
+            target.Freeze(duration);
             frozenTargets.Add(target);
         }
 

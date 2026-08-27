@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.Events;
+using UnityEngine.SceneManagement;
 
 public class GameManager : MonoBehaviour
 {
@@ -132,7 +133,7 @@ public class GameManager : MonoBehaviour
     {
         isGameOver = true;
         Debug.Log("[RewindGauge] GAME OVER");
-        onGameOver?.Invoke();
+        SceneManager.LoadScene("GameoverScene"); 
     }
 
     //Playerの被ダメEffect

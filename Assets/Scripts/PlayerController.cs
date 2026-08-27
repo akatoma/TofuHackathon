@@ -1,6 +1,7 @@
 using System.Collections;
 using UnityEngine;
 using UnityEngine.Events;
+using UnityEngine.SceneManagement;
 
 [RequireComponent(typeof(Rigidbody))]
 public class PlayerController : MonoBehaviour, ISnapshotable
@@ -326,7 +327,7 @@ public class PlayerController : MonoBehaviour, ISnapshotable
         else
         {
             Debug.Log("[PlayerController] セーブがないためゲームオーバー。");
-            onGameOver?.Invoke();
+            SceneManager.LoadScene("GameoverScene");
         }
     }
 
