@@ -8,6 +8,9 @@ using UnityEngine;
 
 public class EnemyController : MonoBehaviour, ISnapshotable, IFreezable
 {
+    // 敵が倒された瞬間に通知される。GameManagerなどはこれを購読するだけでよい
+    public static event System.Action OnEnemyDefeated;
+
     [Header("Health")]
     public int maxHealth = 50;
     int currentHealth;
@@ -32,13 +35,21 @@ public class EnemyController : MonoBehaviour, ISnapshotable, IFreezable
     public float bulletSpeed = 15f;
     public float bulletLifetime = 3f;
     public GameObject bulletPrefab;
-    float nextAttackTime;
+    float attackTimer = 0f; // 次の攻撃までの残り時間。speedScaleの影響を受けて進む
 
     Rigidbody enemyRb;
 
+    [Header("Save-State Highlight")]
+    public Color highlightColor = Color.red; // セーブがある間、この色でEmission発光させる
+    public float highlightIntensity = 2f;
+
+    Renderer[] renderers;
+    MaterialPropertyBlock propBlock;
+    static readonly int EmissionColorId = Shader.PropertyToID("_EmissionColor");
+
     [Header("Freeze Transition")]
-    public float freezeDuration = 0.4f;   // 停止までの減速時間(秒)
-    public float unfreezeDuration = 0.4f; // 再開までの加速時間(秒)
+    public float freezeDuration = 0.4f;   // スローになるまでの減速時間(秒)
+    public float unfreezeDuration = 1.5f; // 通常速度に戻るまでの加速時間(秒)。長めに設定
 
     // TimeStopSkillによる速度倍率。1=通常速度、0=完全停止。瞬時ではなく徐々に変化する
     float speedScale = 1f;
@@ -58,10 +69,56 @@ public class EnemyController : MonoBehaviour, ISnapshotable, IFreezable
         enemyRb = GetComponent<Rigidbody>();
         currentHealth = maxHealth;
 
+        renderers = GetComponentsInChildren<Renderer>();
+        propBlock = new MaterialPropertyBlock();
+
         if (healthBar != null)
         {
             healthBar.SetHealth(currentHealth, maxHealth);
             healthBar.SetVisible(false);
+        }
+    }
+
+    void OnEnable()
+    {
+        SnapshotManager.OnSnapshotSaved += HandleSnapshotSaved;
+        SnapshotManager.OnSnapshotCleared += HandleSnapshotCleared;
+
+        // 有効化された時点で既にセーブがある状態なら、最初からハイライトしておく
+        bool currentlySaved = SnapshotManager.Instance != null && SnapshotManager.Instance.HasSnapshot;
+        SetHighlighted(currentlySaved);
+    }
+
+    void OnDisable()
+    {
+        SnapshotManager.OnSnapshotSaved -= HandleSnapshotSaved;
+        SnapshotManager.OnSnapshotCleared -= HandleSnapshotCleared;
+    }
+
+    void HandleSnapshotSaved()
+    {
+        SetHighlighted(true);
+    }
+
+    void HandleSnapshotCleared()
+    {
+        SetHighlighted(false);
+    }
+
+    void SetHighlighted(bool on)
+    {
+        if (renderers == null)
+        {
+            return;
+        }
+
+        Color emission = on ? highlightColor * highlightIntensity : Color.black;
+
+        foreach (Renderer r in renderers)
+        {
+            r.GetPropertyBlock(propBlock);
+            propBlock.SetColor(EmissionColorId, emission);
+            r.SetPropertyBlock(propBlock);
         }
     }
 
@@ -101,8 +158,13 @@ public class EnemyController : MonoBehaviour, ISnapshotable, IFreezable
         }
         else 
         {
-            //攻撃
-            Attack();
+            //攻撃: クールダウンの経過もspeedScaleに合わせて遅くする
+            attackTimer -= Time.fixedDeltaTime * speedScale;
+            if (attackTimer <= 0f)
+            {
+                attackTimer = attackCooldown;
+                Attack();
+            }
         }
         
         enemyRb.MoveRotation(Quaternion.LookRotation(toTarget.normalized, Vector3.up));
@@ -110,7 +172,10 @@ public class EnemyController : MonoBehaviour, ISnapshotable, IFreezable
 
     public void TakeDamage(int amount)
     {
-        if (isDead) return;
+        if (isDead)
+        {
+            return;
+        }
 
         currentHealth -= amount;
         Debug.Log($"{name} took {amount} damage. Remaining: {currentHealth}");
@@ -136,16 +201,12 @@ public class EnemyController : MonoBehaviour, ISnapshotable, IFreezable
         // 巻き戻し(Rキー)でセーブ時点が「生存中」なら復活できるようにする
         gameObject.SetActive(false);
         Debug.Log($"{name} defeated.");
+
+        OnEnemyDefeated?.Invoke();
     }
 
     void Attack()
     {
-        if (Time.time < nextAttackTime)
-        {
-            return;
-        }
-        nextAttackTime = Time.time + attackCooldown;
-
         Vector3 direction = target.position - transform.position;
         direction.y = 0f;
         if (direction.sqrMagnitude <= 0.1f)
@@ -155,14 +216,23 @@ public class EnemyController : MonoBehaviour, ISnapshotable, IFreezable
         
         GetComponent<AudioSource>().Play();
         direction.Normalize();
-
         GameObject bullet = Instantiate(
             bulletPrefab,
             transform.position + direction * 0.8f,
             Quaternion.LookRotation(direction, Vector3.up) * Quaternion.Euler(90f, 0f, 0f));
 
         Rigidbody bulletRb = bullet.GetComponent<Rigidbody>();
-        bulletRb.velocity = direction * bulletSpeed;
+        bulletRb.velocity = direction * bulletSpeed; // 常に「本来の速度」でまず初期化する
+
+        // 自分(敵)が現在スロー中なら、弾も生まれた瞬間からスローで始める
+        if (speedScale < 1f)
+        {
+            FreezableRigidbody freezable = bullet.GetComponent<FreezableRigidbody>();
+            if (freezable != null)
+            {
+                freezable.InitializeFrozen(speedScale);
+            }
+        }
 
         EnemyBullet enemyBullet = bullet.GetComponent<EnemyBullet>();
         if (enemyBullet == null)
@@ -174,10 +244,10 @@ public class EnemyController : MonoBehaviour, ISnapshotable, IFreezable
         enemyBullet.lifetime = bulletLifetime;
     }
 
-    // TimeStopSkillから呼ばれる。瞬時ではなく、短時間かけて減速して止まる
-    public void Freeze()
+    // TimeStopSkillから呼ばれる。瞬時ではなく、短時間かけて指定の速度倍率(slowFactor)まで減速する
+    public void Freeze(float slowFactor)
     {
-        StartSpeedTransition(0f, freezeDuration);
+        StartSpeedTransition(Mathf.Clamp01(slowFactor), freezeDuration);
     }
 
     public void Unfreeze()
@@ -187,6 +257,14 @@ public class EnemyController : MonoBehaviour, ISnapshotable, IFreezable
 
     void StartSpeedTransition(float targetScale, float duration)
     {
+        if (!gameObject.activeInHierarchy)
+        {
+            // 非アクティブ(倒されて非表示中など)はコルーチンを開始できないため、
+            // アニメーションなしで値だけ即座に反映する
+            speedScale = targetScale;
+            return;
+        }
+
         if (speedTransitionCoroutine != null)
         {
             StopCoroutine(speedTransitionCoroutine);
@@ -262,6 +340,15 @@ class EnemyBullet : MonoBehaviour
 
     void OnTriggerEnter(Collider other)
     {
+        PlayerController player = other.gameObject.GetComponentInParent<PlayerController>();
+        if (player != null)
+        {
+            // player.TakeDamage(damage);
+            GameManager gameManager = FindObjectOfType<GameManager>();
+            gameManager.ShowHitPanel(0.3f);
+            Destroy(gameObject);
+            return;
+        }
         Destroy(gameObject);
     }
     

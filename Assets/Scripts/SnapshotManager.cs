@@ -48,19 +48,18 @@ public class SnapshotManager : MonoBehaviour
         }
     }
 
+    void Start()
+    {
+        // ゲーム開始地点を最初のセーブポイントにしておく
+        SaveSnapshot();
+    }
+
     void Update()
     {
         if (Input.GetKeyDown(saveKey))
         {
-            // セーブデータが既にあれば削除、なければ新規に保存する(トグル式)
-            if (hasSnapshot)
-            {
-                ClearSnapshot();
-            }
-            else
-            {
-                SaveSnapshot();
-            }
+            // 常に上書き保存する(トグル/削除はしない)
+            SaveSnapshot();
         }
         else if (Input.GetKeyDown(loadKey))
         {

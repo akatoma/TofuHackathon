@@ -14,8 +14,9 @@ public class GameManager : MonoBehaviour
     [Header("Delusion Gauge")]
     public float maxValue = 100f;
     float currentValue = 0f;
-    public float increaseOnSave = 10f; // セーブ(Q)1回あたりの増加量
-    public float increaseOnLoad = 10f; // 巻き戻し(R)1回あたりの増加量
+    public float fillRate = 5f; // セーブがある間、1秒あたりに増える量
+    public float increaseOnSave = 5f; // Qを押すたびに追加で増える量
+    public float increaseOnLoad = 5f; // Rを押すたびに追加で増える量
 
     [Header("Game Over")]
     public UnityEvent onGameOver; // ゲームオーバー時の処理をInspectorで割り当てる
@@ -38,16 +39,49 @@ public class GameManager : MonoBehaviour
         playerController.OnHealthChanged += HandleHealthChanged;
         HandleHealthChanged(playerController.currentHealth, playerController.maxHealth);
 
+        EnemyController.OnEnemyDefeated += HandleEnemyDefeated;
+
         SnapshotManager.OnSnapshotSaved += HandleSaved;
         SnapshotManager.OnSnapshotLoaded += HandleLoaded;
-
     }
     void OnDisable()
     {
         playerController.OnHealthChanged -= HandleHealthChanged;
 
+        EnemyController.OnEnemyDefeated -= HandleEnemyDefeated;
+
         SnapshotManager.OnSnapshotSaved -= HandleSaved;
         SnapshotManager.OnSnapshotLoaded -= HandleLoaded;
+    }
+
+    void HandleSaved()
+    {
+        Increase(increaseOnSave);
+    }
+
+    void HandleLoaded()
+    {
+        Increase(increaseOnLoad);
+    }
+
+    void HandleEnemyDefeated()
+    {
+        if (isGameOver) return;
+
+        // 敵を倒すとゲージが全回復する
+        currentValue = 0f;
+        gaugeSlider.value = currentValue;
+        Debug.Log("[GameManager] Enemy defeated - gauge fully recovered.");
+    }
+
+    void Update()
+    {
+        // セーブがある間だけ、一定速度でゲージが増え続ける
+        bool hasSave = SnapshotManager.Instance != null && SnapshotManager.Instance.HasSnapshot;
+        if (hasSave)
+        {
+            Increase(fillRate * Time.deltaTime);
+        }
     }
 
     //UI
@@ -55,14 +89,6 @@ public class GameManager : MonoBehaviour
     {
         healthSlider.maxValue = max;
         healthSlider.value = current;
-    }
-    void HandleSaved()
-    {
-        Increase(increaseOnSave);
-    }
-    void HandleLoaded()
-    {
-        Increase(increaseOnLoad);
     }
     void Increase(float amount)
     {
