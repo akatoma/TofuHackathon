@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 using UnityEngine.Events;
 
@@ -37,11 +38,33 @@ public class PlayerController : MonoBehaviour, ISnapshotable
     public LayerMask hittableLayers = ~0; // Playerレイヤーは除外しておくこと
     public CameraController cameraController;
 
+    [Header("Jump")]
+    public float jumpForce = 7f;
+    public float groundCheckDistance = 1.1f; // カプセルの高さに合わせて調整してください
+    public LayerMask groundLayer = ~0;       // 実際は「Ground」など地面用レイヤーに絞るのを推奨
 
+<<<<<<< Updated upstream
     // セーブ/巻き戻しからこの値を読み書きできるようにする。
     // これをRigidbodyの回転と一緒に復元しないと、次のFixedUpdateで
     // 巻き戻し前のyawに上書きされてしまう
     // float yaw; を削除し、こちらに統一
+=======
+    [Header("Slide")]
+    public KeyCode slideKey = KeyCode.LeftShift;
+    public float slideForce = 15f;          // 発動時にかける衝撃の強さ
+    public float slideDuration = 0.5f;      // この間、通常移動を止めて慣性に任せる
+    public float slideHeadHeight = 0.5f;    // スライディング中のHeadのローカルY座標
+    public float headHeightTransition = 0.15f; // 頭の高さが切り替わる時間
+
+    bool isSliding = false;
+    float slideEndTime = 0f;
+    float standingHeadHeight;
+    Coroutine headHeightCoroutine;
+
+    // セーブ/巻き戻しからこの値を読み書きできるようにする。
+    // これをRigidbodyの回転と一緒に復元しないと、次のFixedUpdateで
+    // 巻き戻し前のyawに上書きされてしまう
+>>>>>>> Stashed changes
     public float Yaw { get; set; }
 
     Rigidbody rb;
@@ -61,9 +84,19 @@ public class PlayerController : MonoBehaviour, ISnapshotable
 
     void Awake()
     {
+<<<<<<< Updated upstream
+=======
+        rb = GetComponent<Rigidbody>(); // FixedUpdateではなくここで一度だけ取得する
+
+>>>>>>> Stashed changes
         Yaw = transform.eulerAngles.y;
         currentHealth = maxHealth;
         OnHealthChanged?.Invoke(currentHealth, maxHealth);
+
+        if (cameraController != null)
+        {
+            standingHeadHeight = cameraController.transform.localPosition.y;
+        }
 
         if (lockCursor)
         {
@@ -75,23 +108,16 @@ public class PlayerController : MonoBehaviour, ISnapshotable
     void OnEnable()
     {
         SnapshotManager.OnSnapshotSaved += HandleSnapshotSaved;
-        SnapshotManager.OnSnapshotCleared += HandleSnapshotCleared;
     }
 
     void OnDisable()
     {
         SnapshotManager.OnSnapshotSaved -= HandleSnapshotSaved;
-        SnapshotManager.OnSnapshotCleared -= HandleSnapshotCleared;
     }
 
     void HandleSnapshotSaved()
     {
         hasSaveAvailable = true;
-    }
-
-    void HandleSnapshotCleared()
-    {
-        hasSaveAvailable = false;
     }
 
     void Update()
@@ -111,14 +137,40 @@ public class PlayerController : MonoBehaviour, ISnapshotable
         {
             Attack();
         }
+
+        if (Input.GetKeyDown(KeyCode.Space))
+        {
+            TryJump();
+        }
+
+        if (Input.GetKeyDown(slideKey) && !isSliding)
+        {
+            StartSlide();
+        }
+
+        if (isSliding && Time.time >= slideEndTime)
+        {
+            EndSlide();
+        }
     }
 
     void FixedUpdate()
     {
+<<<<<<< Updated upstream
         rb = GetComponent<Rigidbody>();
 
+=======
+        // 視点の左右回転はスライディング中も継続する
+>>>>>>> Stashed changes
         Quaternion rotation = Quaternion.Euler(0f, Yaw, 0f);
         rb.MoveRotation(rotation);
+
+        if (isSliding)
+        {
+            // スライディング中は、毎FixedUpdateで位置を上書きする通常移動を止めて
+            // Rigidbodyの慣性(AddForceで与えた衝撃)にそのまま任せる
+            return;
+        }
 
         Vector3 forward = rotation * Vector3.forward;
         Vector3 right = rotation * Vector3.right;
@@ -132,6 +184,82 @@ public class PlayerController : MonoBehaviour, ISnapshotable
         rb.MovePosition(rb.position + move * moveSpeed * Time.fixedDeltaTime);
     }
 
+<<<<<<< Updated upstream
+=======
+    void TryJump()
+    {
+        if (!IsGrounded())
+        {
+            return;
+        }
+
+        // 前フレームまでの落下速度を打ち消してから加える(ジャンプ高さを安定させるため)
+        Vector3 velocity = rb.velocity;
+        velocity.y = 0f;
+        rb.velocity = velocity;
+
+        rb.AddForce(Vector3.up * jumpForce, ForceMode.Impulse);
+    }
+
+    bool IsGrounded()
+    {
+        return Physics.Raycast(transform.position, Vector3.down, groundCheckDistance, groundLayer, QueryTriggerInteraction.Ignore);
+    }
+
+    void StartSlide()
+    {
+        isSliding = true;
+        slideEndTime = Time.time + slideDuration;
+
+        // 発動した瞬間に向いている方向へ強い衝撃を与える
+        Vector3 direction = Quaternion.Euler(0f, Yaw, 0f) * Vector3.forward;
+        rb.AddForce(direction * slideForce, ForceMode.Impulse);
+
+        SetHeadHeight(slideHeadHeight);
+    }
+
+    void EndSlide()
+    {
+        isSliding = false;
+        SetHeadHeight(standingHeadHeight);
+    }
+
+    void SetHeadHeight(float targetY)
+    {
+        if (cameraController == null)
+        {
+            return;
+        }
+
+        if (headHeightCoroutine != null)
+        {
+            StopCoroutine(headHeightCoroutine);
+        }
+        headHeightCoroutine = StartCoroutine(HeadHeightRoutine(targetY));
+    }
+
+    IEnumerator HeadHeightRoutine(float targetY)
+    {
+        Transform head = cameraController.transform;
+        float startY = head.localPosition.y;
+        float t = 0f;
+
+        while (t < headHeightTransition)
+        {
+            t += Time.deltaTime;
+            float p = headHeightTransition > 0f ? t / headHeightTransition : 1f;
+            Vector3 pos = head.localPosition;
+            pos.y = Mathf.Lerp(startY, targetY, p);
+            head.localPosition = pos;
+            yield return null;
+        }
+
+        Vector3 finalPos = head.localPosition;
+        finalPos.y = targetY;
+        head.localPosition = finalPos;
+    }
+
+>>>>>>> Stashed changes
     //攻撃
     void Attack()
     {
@@ -164,16 +292,41 @@ public class PlayerController : MonoBehaviour, ISnapshotable
     }
     void OnTriggerEnter(Collider collider)
     {
+<<<<<<< Updated upstream
         if (collider.CompareTag(bulletTag))
+=======
+        if (!collider.CompareTag(bulletTag))
+>>>>>>> Stashed changes
         {
             TakeDamage(bulletDamage);
             GameManager gameManager = FindObjectOfType<GameManager>();
             gameManager.ShowHitPanel(0.3f);
         }
+<<<<<<< Updated upstream
+=======
+
+        if (isSliding)
+        {
+            return; // スライディング中は無敵(ヒットパネルも出さない)
+        }
+
+        TakeDamage(bulletDamage);
+        GameManager gameManager = FindObjectOfType<GameManager>();
+        gameManager.ShowHitPanel(0.3f);
+>>>>>>> Stashed changes
     }
     public void TakeDamage(int amount)
     {
         if (currentHealth <= 0) return;
+<<<<<<< Updated upstream
+=======
+
+        if (isSliding)
+        {
+            Debug.Log("[PlayerController] Sliding - damage ignored.");
+            return; // 念のためこちらでも無敵を保証しておく
+        }
+>>>>>>> Stashed changes
 
         currentHealth = Mathf.Max(currentHealth - amount, 0);
         Debug.Log($"[PlayerController] Bullet hit. HP: {currentHealth}/{maxHealth}");
