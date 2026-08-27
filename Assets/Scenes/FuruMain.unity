@@ -1897,6 +1897,16 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 55
   cameraController: {fileID: 182541658}
+  jumpForce: 7
+  groundCheckDistance: 1.1
+  groundLayer:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  slideKey: 304
+  slideForce: 15
+  slideDuration: 0.5
+  slideHeadHeight: -0.2
+  headHeightTransition: 0.15
 --- !u!54 &2048833665
 Rigidbody:
   m_ObjectHideFlags: 0
