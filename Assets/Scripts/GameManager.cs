@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.Events;
+using UnityEngine.SceneManagement;
 
 public class GameManager : MonoBehaviour
 {
@@ -14,9 +15,9 @@ public class GameManager : MonoBehaviour
     [Header("Delusion Gauge")]
     public float maxValue = 100f;
     float currentValue = 0f;
-    public float increaseOnSave = 10f; // セーブ(Q)1回あたりの増加量
-    public float increaseOnLoad = 10f; // 巻き戻し(R)1回あたりの増加量
-
+    public float fillRate = 5f; // セーブがある間、1秒あたりに増える量
+    public float increaseOnSave = 5f; // Qを押すたびに追加で増える量
+    public float increaseOnLoad = 5f; // Rを押すたびに追加で増える量
 
     [Header("Bullets Hit Effect")]
     public GameObject panel;
@@ -32,9 +33,6 @@ public class GameManager : MonoBehaviour
     public float darkenFadeDuration = 0.5f;
     Coroutine fadeCoroutine;
 
-    [Header("Game Over")]
-    public UnityEvent onGameOver; // ゲームオーバー時の処理をInspectorで割り当てる
-                                  // (例: GameOverパネルの表示、シーン遷移など)
     bool isGameOver = false;
 
 
@@ -49,6 +47,8 @@ public class GameManager : MonoBehaviour
         playerController.OnHealthChanged += HandleHealthChanged;
         HandleHealthChanged(playerController.currentHealth, playerController.maxHealth);
 
+        EnemyController.OnEnemyDefeated += HandleEnemyDefeated;
+
         SnapshotManager.OnSnapshotSaved += HandleSaved;
         SnapshotManager.OnSnapshotLoaded += HandleLoaded;
         SnapshotManager.OnSnapshotCleared += HandleCleared;
@@ -56,30 +56,26 @@ public class GameManager : MonoBehaviour
         // 起動時、既にセーブがある状態なら暗転も即座に反映しておく
         bool currentlySaved = SnapshotManager.Instance != null && SnapshotManager.Instance.HasSnapshot;
         SetDarkenImmediate(currentlySaved ? darkenTargetAlpha : 0f);
-
     }
     void OnDisable()
     {
         playerController.OnHealthChanged -= HandleHealthChanged;
 
+        EnemyController.OnEnemyDefeated -= HandleEnemyDefeated;
+
         SnapshotManager.OnSnapshotSaved -= HandleSaved;
         SnapshotManager.OnSnapshotLoaded -= HandleLoaded;
         SnapshotManager.OnSnapshotCleared -= HandleCleared;
-
     }
 
     //UI
-    void HandleHealthChanged(int current, int max)
-    {
-        healthSlider.maxValue = max;
-        healthSlider.value = current;
-    }
     void HandleSaved()
     {
         Increase(increaseOnSave);
         SpawnRipple();
         FadeDarken(darkenTargetAlpha);
     }
+
     void HandleLoaded()
     {
         Increase(increaseOnLoad);
@@ -89,6 +85,33 @@ public class GameManager : MonoBehaviour
         FadeDarken(0f);
     }
 
+
+    void HandleEnemyDefeated()
+    {
+        if (isGameOver) return;
+
+        // 敵を倒すとゲージが全回復する
+        currentValue = 0f;
+        gaugeSlider.value = currentValue;
+        Debug.Log("[GameManager] Enemy defeated - gauge fully recovered.");
+    }
+
+    void Update()
+    {
+        // セーブがある間だけ、一定速度でゲージが増え続ける
+        bool hasSave = SnapshotManager.Instance != null && SnapshotManager.Instance.HasSnapshot;
+        if (hasSave)
+        {
+            Increase(fillRate * Time.deltaTime);
+        }
+    }
+
+    //UI
+    void HandleHealthChanged(int current, int max)
+    {
+        healthSlider.maxValue = max;
+        healthSlider.value = current;
+    }
     void Increase(float amount)
     {
         if (isGameOver) return;
@@ -107,7 +130,7 @@ public class GameManager : MonoBehaviour
     {
         isGameOver = true;
         Debug.Log("[RewindGauge] GAME OVER");
-        onGameOver?.Invoke();
+        SceneManager.LoadScene("GameoverScene"); 
     }
 
     //Playerの被ダメEffect
@@ -127,7 +150,7 @@ public class GameManager : MonoBehaviour
         panelRoutine = null;
     }
 
-    //波紋
+    //波紋などの演出
     void SpawnRipple()
     {
         if (ripplePrefab == null || player == null)
