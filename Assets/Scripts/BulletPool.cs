@@ -14,8 +14,15 @@ public class BulletPool : MonoBehaviour
 
     public EnemyBullet Spawn(GameObject prefab)
     {
-        foreach (var b in pool)
+        for (int i = pool.Count - 1; i >= 0; i--)
         {
+            EnemyBullet b = pool[i];
+            if (b == null)
+            {
+                pool.RemoveAt(i);
+                continue;
+            }
+
             if (!b.gameObject.activeSelf)
             {
                 return b;
@@ -38,8 +45,8 @@ public class BulletPool : MonoBehaviour
 public class EnemyBullet : MonoBehaviour, ISnapshotable
 {
     public int damage;
-    public float lifetime;
-    float remainingLifetime;
+    public float lifetime = 3f;
+    float remainingLifetime = 3f;
     Rigidbody bulletRb;
 
     class BulletState
@@ -62,18 +69,22 @@ public class EnemyBullet : MonoBehaviour, ISnapshotable
         remainingLifetime -= Time.deltaTime;
         if (remainingLifetime <= 0f)
         {
-            gameObject.SetActive(false);
+            Destroy(gameObject);
         }
     }
 
     void OnTriggerEnter(Collider other)
     {
-        gameObject.SetActive(false); 
+        Destroy(gameObject);
     }
 
     // 発射
     public void Fire(Vector3 position, Quaternion rotation, Vector3 velocity, int damage, float lifetime)
     {
+        if (bulletRb == null)
+        {
+            bulletRb = GetComponent<Rigidbody>();
+        }
         transform.SetPositionAndRotation(position, rotation);
         this.damage = damage;
         this.lifetime = lifetime;

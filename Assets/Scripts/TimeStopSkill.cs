@@ -1,121 +1,127 @@
-using System.Collections.Generic;
-using System.Linq;
-using UnityEngine;
+// using System.Collections.Generic;
+// using System.Linq;
+// using UnityEngine;
 
-// Playerにアタッチする。
-// セーブがある間だけ発動できるスキル。発動中、IFreezableを実装した
-// プレイヤー以外のオブジェクトすべての動きを止める。
-public class TimeStopSkill : MonoBehaviour
-{
-    [Header("Input")]
-    public KeyCode activateKey = KeyCode.E; // 発動キー。要件があれば変更してください
+// // Playerにアタッチする。
+// // セーブがある間だけ発動できるスキル。発動中、IFreezableを実装した
+// // プレイヤー以外のオブジェクトすべての動きを止める。
+// public class TimeStopSkill : MonoBehaviour
+// {
+//     [Header("Input")]
+//     public KeyCode activateKey = KeyCode.E; // 発動キー。要件があれば変更してください
 
-    [Header("Settings")]
-    public float duration = 3f; // 効果時間(秒)。0以下にすると、もう一度押すまで止まったままになる
+//     [Header("Settings")]
+//     public float duration = 3f; // 効果時間(秒)。0以下にすると、もう一度押すまで止まったままになる
 
-    bool isActive = false;
-    float remainingTime = 0f;
-    readonly List<IFreezable> frozenTargets = new List<IFreezable>();
+//     bool isActive = false;
+//     float remainingTime = 0f;
+//     readonly List<IFreezable> frozenTargets = new List<IFreezable>();
+//     public Transform playerTransform;
 
-    void OnEnable()
-    {
-        // セーブが削除されたら、発動中でも強制的に解除する
-        SnapshotManager.OnSnapshotCleared += HandleSnapshotCleared;
-    }
+//     void OnEnable()
+//     {
+//         // セーブが削除されたら、発動中でも強制的に解除する
+//         SnapshotManager.OnSnapshotCleared += HandleSnapshotCleared;
+//     }
 
-    void OnDisable()
-    {
-        SnapshotManager.OnSnapshotCleared -= HandleSnapshotCleared;
-    }
+//     void OnDisable()
+//     {
+//         SnapshotManager.OnSnapshotCleared -= HandleSnapshotCleared;
+//     }
 
-    void HandleSnapshotCleared()
-    {
-        if (isActive)
-        {
-            Deactivate();
-        }
-    }
+//     void HandleSnapshotCleared()
+//     {
+//         if (isActive)
+//         {
+//             Deactivate();
+//         }
+//     }
 
-    void Update()
-    {
-        if (Input.GetKeyDown(activateKey))
-        {
-            if (isActive)
-            {
-                Deactivate(); // 発動中にもう一度押したら早期終了
-            }
-            else
-            {
-                TryActivate();
-            }
-        }
+//     void Update()
+//     {
+//         if (Input.GetKeyDown(activateKey))
+//         {
+//             if (isActive)
+//             {
+//                 Deactivate(); // 発動中にもう一度押したら早期終了
+//             }
+//             else
+//             {
+//                 TryActivate();
+//             }
+//         }
 
-        if (isActive && duration > 0f)
-        {
-            remainingTime -= Time.deltaTime;
-            if (remainingTime <= 0f)
-            {
-                Deactivate();
-            }
-        }
-    }
+//         if (isActive && duration > 0f)
+//         {
+//             remainingTime -= Time.deltaTime;
+//             if (remainingTime <= 0f)
+//             {
+//                 Deactivate();
+//             }
+//         }
+//     }
 
-    void TryActivate()
-    {
-        bool hasSave = SnapshotManager.Instance != null && SnapshotManager.Instance.HasSnapshot;
-        if (!hasSave)
-        {
-            Debug.Log("[TimeStopSkill] セーブがないため使用できません。");
-            return;
-        }
+//     void TryActivate()
+//     {
+//         bool hasSave = SnapshotManager.Instance != null && SnapshotManager.Instance.HasSnapshot;
+//         if (!hasSave)
+//         {
+//             Debug.Log("[TimeStopSkill] セーブがないため使用できません。");
+//             return;
+//         }
 
-        Activate();
-    }
+//         Activate();
+//     }
 
-    void Activate()
-    {
-        isActive = true;
-        remainingTime = duration;
+//     void Activate()
+//     {
+//         isActive = true;
+//         remainingTime = duration;
 
-        frozenTargets.Clear();
+//         frozenTargets.Clear();
 
-        // シーン内のIFreezable実装オブジェクトを毎回集め直す
-        foreach (IFreezable target in FindObjectsOfType<MonoBehaviour>().OfType<IFreezable>())
-        {
-            // 自分自身(Player)配下のものは対象外
-            if (target is MonoBehaviour mb && mb.transform.root == transform.root)
-            {
-                continue;
-            }
+//         // シーン内のIFreezable実装オブジェクトを毎回集め直す
+//         foreach (IFreezable target in FindObjectsOfType<MonoBehaviour>().OfType<IFreezable>())
+//         {
+//             // // 自分自身(Player)配下のものは対象外
+//             // if (target is MonoBehaviour mb && mb.transform.root == transform.root)
+//             // {
+//             //     continue;
+//             // }
 
-            target.Freeze();
-            frozenTargets.Add(target);
-        }
+//             if (target is MonoBehaviour mb && mb.transform.root == playerTransform.root)
+//             {
+//                 return; // ループ内なら continue;
+//             }
 
-        Debug.Log($"[TimeStopSkill] Activated. Frozen: {frozenTargets.Count}");
-    }
+//             target.Freeze();
+//             frozenTargets.Add(target);
+//         }
 
-    public void Deactivate()
-    {
-        if (!isActive)
-        {
-            return;
-        }
+//         Debug.Log($"[TimeStopSkill] Activated. Frozen: {frozenTargets.Count}");
+//     }
 
-        foreach (IFreezable target in frozenTargets)
-        {
-            // 効果中に破棄されたオブジェクト(倒された敵など)はスキップ
-            if (target is MonoBehaviour mb && mb == null)
-            {
-                continue;
-            }
+//     public void Deactivate()
+//     {
+//         if (!isActive)
+//         {
+//             return;
+//         }
 
-            target.Unfreeze();
-        }
+//         foreach (IFreezable target in frozenTargets)
+//         {
+//             // 効果中に破棄されたオブジェクト(倒された敵など)はスキップ
+//             if (target is MonoBehaviour mb && mb == null)
+//             {
+//                 continue;
+//             }
 
-        frozenTargets.Clear();
-        isActive = false;
+//             target.Unfreeze();
+//         }
 
-        Debug.Log("[TimeStopSkill] Deactivated.");
-    }
-}
+//         frozenTargets.Clear();
+//         isActive = false;
+
+//         Debug.Log("[TimeStopSkill] Deactivated.");
+//     }
+// }
