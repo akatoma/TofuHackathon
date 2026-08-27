@@ -2,20 +2,20 @@ using System.Collections;
 using UnityEngine;
 
 // Rigidbodyを持つ任意のオブジェクト(BulletPrefabなど)にアタッチするだけで、
-// TimeStopSkillによる「停止」対象になる汎用コンポーネント。
-// 瞬間停止ではなく、短時間で減速して止まる/再加速して戻る。
+// TimeStopSkillによる「スロー」対象になる汎用コンポーネント。
+// 完全停止ではなく、指定した速度倍率までなめらかに減速/加速する。
 [RequireComponent(typeof(Rigidbody))]
 public class FreezableRigidbody : MonoBehaviour, IFreezable
 {
     [Header("Freeze Transition")]
-    public float freezeDuration = 0.4f;   // 停止までの減速時間(秒)
-    public float unfreezeDuration = 0.4f; // 再開までの加速時間(秒)
+    public float freezeDuration = 0.4f;   // スローになるまでの時間(秒)
+    public float unfreezeDuration = 1.5f; // 通常速度に戻るまでの時間(秒)。長めに設定
 
     Rigidbody rb;
 
     Vector3 savedVelocity;
     Vector3 savedAngularVelocity;
-    bool wasKinematic;
+    bool isFrozen = false;
 
     Coroutine transitionCoroutine;
 
@@ -24,64 +24,75 @@ public class FreezableRigidbody : MonoBehaviour, IFreezable
         rb = GetComponent<Rigidbody>();
     }
 
-    public void Freeze()
+    public void Freeze(float slowFactor)
     {
-        if (transitionCoroutine != null)
+        slowFactor = Mathf.Clamp01(slowFactor);
+
+        if (!isFrozen)
         {
-            StopCoroutine(transitionCoroutine);
+            // 初めてスローになる瞬間の速度だけを「元の速度」として保存する
+            // (既にスロー中の場合、今の遅い速度を誤って"元の速度"にしないためのガード)
+            savedVelocity = rb.velocity;
+            savedAngularVelocity = rb.angularVelocity;
+            isFrozen = true;
         }
-        transitionCoroutine = StartCoroutine(FreezeRoutine());
+
+        StartTransition(savedVelocity * slowFactor, savedAngularVelocity * slowFactor, freezeDuration);
     }
 
     public void Unfreeze()
     {
+        isFrozen = false;
+        StartTransition(savedVelocity, savedAngularVelocity, unfreezeDuration);
+    }
+
+    // 生成直後の弾などに使う。アニメーションなしで、即座にスロー状態から始める。
+    // 呼び出す前に、必ず一度「本来の速度」をrb.velocityにセットしておくこと
+    public void InitializeFrozen(float slowFactor)
+    {
+        slowFactor = Mathf.Clamp01(slowFactor);
+
+        savedVelocity = rb.velocity;
+        savedAngularVelocity = rb.angularVelocity;
+        isFrozen = true;
+
+        rb.velocity = savedVelocity * slowFactor;
+        rb.angularVelocity = savedAngularVelocity * slowFactor;
+    }
+
+    void StartTransition(Vector3 targetVelocity, Vector3 targetAngularVelocity, float duration)
+    {
+        if (!gameObject.activeInHierarchy)
+        {
+            // 非アクティブはコルーチンを開始できないため、値だけ即座に反映する
+            rb.velocity = targetVelocity;
+            rb.angularVelocity = targetAngularVelocity;
+            return;
+        }
+
         if (transitionCoroutine != null)
         {
             StopCoroutine(transitionCoroutine);
         }
-        transitionCoroutine = StartCoroutine(UnfreezeRoutine());
+        transitionCoroutine = StartCoroutine(SpeedTransitionRoutine(targetVelocity, targetAngularVelocity, duration));
     }
 
-    IEnumerator FreezeRoutine()
+    IEnumerator SpeedTransitionRoutine(Vector3 targetVelocity, Vector3 targetAngularVelocity, float duration)
     {
-        // 減速を始める瞬間の速度を保存しておく(再開時に戻すため)
-        wasKinematic = rb.isKinematic;
-        savedVelocity = rb.velocity;
-        savedAngularVelocity = rb.angularVelocity;
-
         Vector3 startVel = rb.velocity;
         Vector3 startAngVel = rb.angularVelocity;
         float t = 0f;
 
-        while (t < freezeDuration)
+        while (t < duration)
         {
             t += Time.deltaTime;
-            float p = freezeDuration > 0f ? t / freezeDuration : 1f;
-            rb.velocity = Vector3.Lerp(startVel, Vector3.zero, p);
-            rb.angularVelocity = Vector3.Lerp(startAngVel, Vector3.zero, p);
+            float p = duration > 0f ? t / duration : 1f;
+            rb.velocity = Vector3.Lerp(startVel, targetVelocity, p);
+            rb.angularVelocity = Vector3.Lerp(startAngVel, targetAngularVelocity, p);
             yield return null;
         }
 
-        rb.velocity = Vector3.zero;
-        rb.angularVelocity = Vector3.zero;
-        rb.isKinematic = true; // 完全に静止させ、重力などの影響も断つ
-    }
-
-    IEnumerator UnfreezeRoutine()
-    {
-        rb.isKinematic = wasKinematic;
-
-        float t = 0f;
-        while (t < unfreezeDuration)
-        {
-            t += Time.deltaTime;
-            float p = unfreezeDuration > 0f ? t / unfreezeDuration : 1f;
-            rb.velocity = Vector3.Lerp(Vector3.zero, savedVelocity, p);
-            rb.angularVelocity = Vector3.Lerp(Vector3.zero, savedAngularVelocity, p);
-            yield return null;
-        }
-
-        rb.velocity = savedVelocity;
-        rb.angularVelocity = savedAngularVelocity;
+        rb.velocity = targetVelocity;
+        rb.angularVelocity = targetAngularVelocity;
     }
 }

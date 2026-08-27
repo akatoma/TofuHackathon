@@ -1340,7 +1340,6 @@ GameObject:
   - component: {fileID: 1888954069}
   - component: {fileID: 1888954068}
   - component: {fileID: 1888954067}
-  - component: {fileID: 1888954071}
   m_Layer: 0
   m_Name: GameManager
   m_TagString: Untagged
@@ -1374,7 +1373,19 @@ MonoBehaviour:
   darkenFadeDuration: 0.5
   onGameOver:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 0}
+        m_TargetAssemblyTypeName: SceneLoader, Assembly-CSharp
+        m_MethodName: LoadScene
+        m_Mode: 5
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: GameoverScene
+          m_BoolArgument: 0
+        m_CallState: 2
 --- !u!82 &1888954068
 AudioSource:
   m_ObjectHideFlags: 0
@@ -1503,22 +1514,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1888954071
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1888954066}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5650d8275610c814fbcc79e9f176a0d6, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  allyPrefabs: []
-  spawnPoints: []
-  spawnParent: {fileID: 0}
-  spawnOnStart: 1
 --- !u!1 &1894184467
 GameObject:
   m_ObjectHideFlags: 0
@@ -1861,7 +1856,19 @@ MonoBehaviour:
   bulletDamage: 10
   onGameOver:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 0}
+        m_TargetAssemblyTypeName: SceneLoader, Assembly-CSharp
+        m_MethodName: LoadScene
+        m_Mode: 5
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: GameoverScene
+          m_BoolArgument: 0
+        m_CallState: 2
   attackOrigin: {fileID: 182541659}
   hittableLayers:
     serializedVersion: 2

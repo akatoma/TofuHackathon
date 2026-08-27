@@ -1,6 +1,7 @@
 using System.Collections;
 using UnityEngine;
 using UnityEngine.Events;
+using UnityEngine.SceneManagement;
 
 [RequireComponent(typeof(Rigidbody))]
 public class PlayerController : MonoBehaviour, ISnapshotable
@@ -26,9 +27,6 @@ public class PlayerController : MonoBehaviour, ISnapshotable
     [Header("Bullet")]
     public string bulletTag = "Bullet"; // BulletPrefab側にこのタグを付けておく
     public int bulletDamage = 10;
-
-    [Header("Death")]
-    public UnityEvent onGameOver; // セーブがない状態で死亡した時の処理をInspectorで割り当てる
 
     // 体力が変化するたびに(current, max)を通知する。UI側はこれを購読するだけでよい
     public event System.Action<int, int> OnHealthChanged;
@@ -326,7 +324,7 @@ public class PlayerController : MonoBehaviour, ISnapshotable
         else
         {
             Debug.Log("[PlayerController] セーブがないためゲームオーバー。");
-            onGameOver?.Invoke();
+            SceneManager.LoadScene("GameoverScene");
         }
     }
 

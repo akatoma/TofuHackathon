@@ -400,7 +400,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   titleSceneName: Title
-  gameSceneName: main
+  gameSceneName: FuruMain
 --- !u!1 &1548981664
 GameObject:
   m_ObjectHideFlags: 0

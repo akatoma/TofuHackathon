@@ -2,9 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 
-// シーンに1つだけ空オブジェクト(例: "GameManager")を作ってアタッチする。
-// Qキー: その瞬間のシーン内の状態を保存
-// Rキー: 直前に保存した状態まで巻き戻す
+// スキル関係のスクリプトGameManagerにアタッチ
 //
 // 敵などISnapshotableを実装したオブジェクトは、
 // 保存/復元のたびにシーンから自動的に集められるので、
@@ -29,6 +27,7 @@ public class SnapshotManager : MonoBehaviour
     public float duration = 3f; // 効果時間(秒)。0以下にすると、もう一度押すまで止まったままになる
     bool isActive = false;
     float remainingTime = 0f;
+    float speedScale = 0.1f;
     readonly List<IFreezable> frozenTargets = new List<IFreezable>();
     public Transform playerTransform;
 
@@ -40,25 +39,35 @@ public class SnapshotManager : MonoBehaviour
     {
         if (Instance != null && Instance != this)
         {
+            Debug.Log($"[SnapshotManager] 既存のInstanceがあるため、こちら({name})は自身を破棄します。");
             Destroy(gameObject);
             return;
         }
         Instance = this;
+        Debug.Log($"[SnapshotManager] Awake. Instance = {name} (id:{GetInstanceID()})");
+    }
+
+    void OnDestroy()
+    {
+        // シーン再ロード時、破棄される自分自身がInstanceを持ったままにならないようにする
+        if (Instance == this)
+        {
+            Instance = null;
+        }
+    }
+
+    void Start()
+    {
+        // ゲーム開始地点を最初のセーブポイントにしておく
+        SaveSnapshot();
     }
 
     void Update()
     {
         if (Input.GetKeyDown(saveKey))
         {
-            // セーブデータが既にあれば削除、なければ新規に保存する(トグル式)
-            if (hasSnapshot)
-            {
-                ClearSnapshot();
-            }
-            else
-            {
-                SaveSnapshot();
-            }
+            // 常に上書き保存する(トグル/削除はしない)
+            SaveSnapshot();
         }
         else if (Input.GetKeyDown(loadKey))
         {
@@ -179,21 +188,14 @@ public class SnapshotManager : MonoBehaviour
         // シーン内のIFreezable実装オブジェクトを毎回集め直す
         foreach (IFreezable target in FindObjectsOfType<MonoBehaviour>().OfType<IFreezable>())
         {
-            // // 自分自身(Player)配下のものは対象外
-            // if (target is MonoBehaviour mb && mb.transform.root == transform.root)
-            // {
-            //     continue;
-            // }
-
             if (target is MonoBehaviour mb && mb.transform.root == playerTransform.root)
             {
                 continue; // ループ内なら continue;
             }
 
-            target.Freeze();
+            target.Freeze(speedScale);
             frozenTargets.Add(target);
         }
-
         Debug.Log($"[TimeStopSkill] Activated. Frozen: {frozenTargets.Count}");
     }
     public void Deactivate()
