@@ -8,8 +8,9 @@ using UnityEngine;
 
 public class EnemyController : MonoBehaviour, ISnapshotable, IFreezable
 {
-    // 敵が倒された瞬間に通知される。GameManagerなどはこれを購読するだけでよい
-    public static event System.Action OnEnemyDefeated;
+    // 敵が倒された瞬間に通知される。倒されたGameObject自身を渡すので、
+    // 購読側でタグなどを見て判定できる
+    public static event System.Action<GameObject> OnEnemyDefeated;
 
     [Header("Health")]
     public int maxHealth = 50;
@@ -19,13 +20,6 @@ public class EnemyController : MonoBehaviour, ISnapshotable, IFreezable
     [Header("Health Bar")]
     public EnemyHealthBar healthBar; // 頭上に配置したWorld Space Canvasをアサイン
     bool hasBeenHit = false;
-
-    [Header("Damage Flash")]
-    public float flashDuration = 0.1f; // 点滅する時間(秒)
-    public Color flashColor = Color.red; // 点滅時の色
-    private List<Material> enemyMaterials = new List<Material>();
-    private List<Color> originalColors = new List<Color>();
-    private Coroutine flashCoroutine;
 
     [Header("Tracking")]
     public float moveSpeed = 3f;
@@ -75,27 +69,14 @@ public class EnemyController : MonoBehaviour, ISnapshotable, IFreezable
     {
         enemyRb = GetComponent<Rigidbody>();
         currentHealth = maxHealth;
-        
+
+        renderers = GetComponentsInChildren<Renderer>();
         propBlock = new MaterialPropertyBlock();
 
         if (healthBar != null)
         {
             healthBar.SetHealth(currentHealth, maxHealth);
             healthBar.SetVisible(false);
-        }
-
-        // 自身および子オブジェクトのRendererからマテリアルと元の色を取得して保持
-        Renderer[] renderers = GetComponentsInChildren<Renderer>();
-        foreach (Renderer rend in renderers)
-        {
-            foreach (Material mat in rend.materials)
-            {
-                if (mat.HasProperty("_Color"))
-                {
-                    enemyMaterials.Add(mat);
-                    originalColors.Add(mat.color);
-                }
-            }
         }
     }
 
@@ -176,7 +157,7 @@ public class EnemyController : MonoBehaviour, ISnapshotable, IFreezable
             Vector3 direction = toTarget / distance;
             enemyRb.MovePosition(enemyRb.position + direction * moveSpeed * speedScale * Time.fixedDeltaTime);
         }
-        else
+        else 
         {
             //攻撃: クールダウンの経過もspeedScaleに合わせて遅くする
             attackTimer -= Time.fixedDeltaTime * speedScale;
@@ -186,7 +167,7 @@ public class EnemyController : MonoBehaviour, ISnapshotable, IFreezable
                 Attack();
             }
         }
-
+        
         enemyRb.MoveRotation(Quaternion.LookRotation(toTarget.normalized, Vector3.up));
     }
 
@@ -200,9 +181,6 @@ public class EnemyController : MonoBehaviour, ISnapshotable, IFreezable
         currentHealth -= amount;
         Debug.Log($"{name} took {amount} damage. Remaining: {currentHealth}");
 
-        // ダメージ時の赤色点滅処理を呼び出し
-        FlashRed();
-
         if (!hasBeenHit)
         {
             hasBeenHit = true;
@@ -215,62 +193,17 @@ public class EnemyController : MonoBehaviour, ISnapshotable, IFreezable
             Die();
         }
     }
-
-    void FlashRed()
-    {
-        if (flashCoroutine != null)
-        {
-            StopCoroutine(flashCoroutine);
-        }
-        flashCoroutine = StartCoroutine(FlashRoutine());
-    }
-
-    IEnumerator FlashRoutine()
-    {
-        // マテリアルの色を赤に変更
-        for (int i = 0; i < enemyMaterials.Count; i++)
-        {
-            if (enemyMaterials[i] != null)
-            {
-                enemyMaterials[i].color = flashColor;
-            }
-        }
-
-        yield return new WaitForSeconds(flashDuration);
-
-        // 元の色に戻す
-        ResetColor();
-    }
-
-    void ResetColor()
-    {
-        for (int i = 0; i < enemyMaterials.Count; i++)
-        {
-            if (enemyMaterials[i] != null)
-            {
-                enemyMaterials[i].color = originalColors[i];
-            }
-        }
-    }
-
     void Die()
     {
         isDead = true;
         currentHealth = 0;
-
-        // 死亡時に点滅を停止し元の色に戻す
-        if (flashCoroutine != null)
-        {
-            StopCoroutine(flashCoroutine);
-        }
-        ResetColor();
 
         // Destroyではなく非アクティブ化することで、
         // 巻き戻し(Rキー)でセーブ時点が「生存中」なら復活できるようにする
         gameObject.SetActive(false);
         Debug.Log($"{name} defeated.");
 
-        OnEnemyDefeated?.Invoke();
+        OnEnemyDefeated?.Invoke(gameObject);
     }
 
     void Attack()
@@ -281,26 +214,35 @@ public class EnemyController : MonoBehaviour, ISnapshotable, IFreezable
         {
             return;
         }
-
+        
         GetComponent<AudioSource>().Play();
         direction.Normalize();
-        EnemyBullet enemyBullet = BulletPool.Instance.Spawn(bulletPrefab);
-
-        // if (speedScale < 1f)
-        // {
-        //     FreezableRigidbody freezable = enemyBullet.GetComponent<FreezableRigidbody>();
-        //     if (freezable != null)
-        //     {
-        //         freezable.InitializeFrozen(speedScale);
-        //     }
-        // }
-        enemyBullet.Fire(
+        GameObject bullet = Instantiate(
+            bulletPrefab,
             transform.position + direction * 0.8f,
-            Quaternion.LookRotation(direction, Vector3.up) * Quaternion.Euler(90f, 0f, 0f),
-            direction * bulletSpeed,
-            attackDamage,
-            bulletLifetime
-        );
+            Quaternion.LookRotation(direction, Vector3.up) * Quaternion.Euler(90f, 0f, 0f));
+
+        Rigidbody bulletRb = bullet.GetComponent<Rigidbody>();
+        bulletRb.velocity = direction * bulletSpeed; // 常に「本来の速度」でまず初期化する
+
+        // 自分(敵)が現在スロー中なら、弾も生まれた瞬間からスローで始める
+        if (speedScale < 1f)
+        {
+            FreezableRigidbody freezable = bullet.GetComponent<FreezableRigidbody>();
+            if (freezable != null)
+            {
+                freezable.InitializeFrozen(speedScale);
+            }
+        }
+
+        EnemyBullet enemyBullet = bullet.GetComponent<EnemyBullet>();
+        if (enemyBullet == null)
+        {
+            enemyBullet = bullet.AddComponent<EnemyBullet>();
+        }
+
+        enemyBullet.damage = attackDamage;
+        enemyBullet.lifetime = bulletLifetime;
     }
 
     // TimeStopSkillから呼ばれる。瞬時ではなく、短時間かけて指定の速度倍率(slowFactor)まで減速する
@@ -367,13 +309,6 @@ public class EnemyController : MonoBehaviour, ISnapshotable, IFreezable
         {
             return;
         }
-
-        // スナップショット復元時にも色をリセット
-        if (flashCoroutine != null)
-        {
-            StopCoroutine(flashCoroutine);
-        }
-        ResetColor();
 
         transform.position = state.position;
         transform.rotation = state.rotation;
