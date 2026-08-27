@@ -41,7 +41,6 @@ public class PlayerController : MonoBehaviour, ISnapshotable
     // セーブ/巻き戻しからこの値を読み書きできるようにする。
     // これをRigidbodyの回転と一緒に復元しないと、次のFixedUpdateで
     // 巻き戻し前のyawに上書きされてしまう
-    // float yaw; を削除し、こちらに統一
     public float Yaw { get; set; }
 
     Rigidbody rb;
@@ -52,7 +51,7 @@ public class PlayerController : MonoBehaviour, ISnapshotable
     class State
     {
         public Vector3 position;
-        public float yaw;
+        public float yaw; //体の左右回転
         public float pitch;
         public Vector3 velocity;
         public Vector3 angularVelocity;

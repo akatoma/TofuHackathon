@@ -108,40 +108,32 @@ public class EnemyController : MonoBehaviour,  ISnapshotable
     }
 
     void Attack()
+{
+    if (Time.time < nextAttackTime)
     {
-        if (Time.time < nextAttackTime)
-        {
-            return;
-        }
-        nextAttackTime = Time.time + attackCooldown;
-
-        Vector3 direction = target.position - transform.position;
-        direction.y = 0f;
-        if (direction.sqrMagnitude <= 0.1f)
-        {
-            return;
-        }
-        
-        GetComponent<AudioSource>().Play();
-        direction.Normalize();
-
-        GameObject bullet = Instantiate(
-            bulletPrefab,
-            transform.position + direction * 0.8f,
-            Quaternion.LookRotation(direction, Vector3.up) * Quaternion.Euler(90f, 0f, 0f));
-
-        Rigidbody bulletRb = bullet.GetComponent<Rigidbody>();
-        bulletRb.velocity = direction * bulletSpeed;
-
-        EnemyBullet enemyBullet = bullet.GetComponent<EnemyBullet>();
-        if (enemyBullet == null)
-        {
-            enemyBullet = bullet.AddComponent<EnemyBullet>();
-        }
-
-        enemyBullet.damage = attackDamage;
-        enemyBullet.lifetime = bulletLifetime;
+        return;
     }
+    nextAttackTime = Time.time + attackCooldown;
+
+    Vector3 direction = target.position - transform.position;
+    direction.y = 0f;
+    if (direction.sqrMagnitude <= 0.1f)
+    {
+        return;
+    }
+
+    GetComponent<AudioSource>().Play();
+    direction.Normalize();
+
+    EnemyBullet enemyBullet = BulletPool.Instance.Spawn(bulletPrefab);
+    enemyBullet.Fire(
+        transform.position + direction * 0.8f,
+        Quaternion.LookRotation(direction, Vector3.up) * Quaternion.Euler(90f, 0f, 0f),
+        direction * bulletSpeed,
+        attackDamage,
+        bulletLifetime
+    );
+}
 
     //保存
     public object CaptureSnapshot()
@@ -170,28 +162,6 @@ public class EnemyController : MonoBehaviour,  ISnapshotable
 
         // セーブ時点で生きていたなら再アクティブ化、死んでいたなら非アクティブのまま
         gameObject.SetActive(!isDead);
-        
-        //弾丸の削除
-        // EnemyBullet bullets = GetComponent<EnemyBullet>();
-        // Destroy(bullets);
+
     }
-}
-
-
-//弾丸の挙動☆
-class EnemyBullet : MonoBehaviour
-{
-    public int damage;
-    public float lifetime;
-
-    void Start()
-    {
-        Destroy(gameObject, lifetime);
-    }
-
-    void OnTriggerEnter(Collider other)
-    {
-        Destroy(gameObject);
-    }
-    
 }
