@@ -213,35 +213,26 @@ public class EnemyController : MonoBehaviour, ISnapshotable, IFreezable
         {
             return;
         }
-        
+
         GetComponent<AudioSource>().Play();
         direction.Normalize();
-        GameObject bullet = Instantiate(
-            bulletPrefab,
-            transform.position + direction * 0.8f,
-            Quaternion.LookRotation(direction, Vector3.up) * Quaternion.Euler(90f, 0f, 0f));
+        EnemyBullet enemyBullet = BulletPool.Instance.Spawn(bulletPrefab);
 
-        Rigidbody bulletRb = bullet.GetComponent<Rigidbody>();
-        bulletRb.velocity = direction * bulletSpeed; // 常に「本来の速度」でまず初期化する
-
-        // 自分(敵)が現在スロー中なら、弾も生まれた瞬間からスローで始める
         if (speedScale < 1f)
         {
-            FreezableRigidbody freezable = bullet.GetComponent<FreezableRigidbody>();
+            FreezableRigidbody freezable = enemyBullet.GetComponent<FreezableRigidbody>();
             if (freezable != null)
             {
                 freezable.InitializeFrozen(speedScale);
             }
         }
-
-        EnemyBullet enemyBullet = bullet.GetComponent<EnemyBullet>();
-        if (enemyBullet == null)
-        {
-            enemyBullet = bullet.AddComponent<EnemyBullet>();
-        }
-
-        enemyBullet.damage = attackDamage;
-        enemyBullet.lifetime = bulletLifetime;
+        enemyBullet.Fire(
+            transform.position + direction * 0.8f,
+            Quaternion.LookRotation(direction, Vector3.up) * Quaternion.Euler(90f, 0f, 0f),
+            direction * bulletSpeed,
+            attackDamage,
+            bulletLifetime
+        );
     }
 
     // TimeStopSkillから呼ばれる。瞬時ではなく、短時間かけて指定の速度倍率(slowFactor)まで減速する
@@ -324,32 +315,4 @@ public class EnemyController : MonoBehaviour, ISnapshotable, IFreezable
             healthBar.SetVisible(hasBeenHit);
         }
     }
-}
-
-
-//弾丸の挙動☆
-class EnemyBullet : MonoBehaviour
-{
-    public int damage;
-    public float lifetime;
-
-    void Start()
-    {
-        Destroy(gameObject, lifetime);
-    }
-
-    void OnTriggerEnter(Collider other)
-    {
-        PlayerController player = other.gameObject.GetComponentInParent<PlayerController>();
-        if (player != null)
-        {
-            // player.TakeDamage(damage);
-            GameManager gameManager = FindObjectOfType<GameManager>();
-            gameManager.ShowHitPanel(0.3f);
-            Destroy(gameObject);
-            return;
-        }
-        Destroy(gameObject);
-    }
-    
 }

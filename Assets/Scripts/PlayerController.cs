@@ -68,7 +68,7 @@ public class PlayerController : MonoBehaviour, ISnapshotable
     class State
     {
         public Vector3 position;
-        public float yaw;
+        public float yaw; //体の左右回転
         public float pitch;
         public Vector3 velocity;
         public Vector3 angularVelocity;
