@@ -1471,21 +1471,6 @@ MonoBehaviour:
   currentHealth: 0
   bulletTag: Bullet
   bulletDamage: 10
-  onGameOver:
-    m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 11500000, guid: 43763bf846a80f141b28ac95016503ec, type: 3}
-        m_TargetAssemblyTypeName: SceneLoader, Assembly-CSharp
-        m_MethodName: LoadScene
-        m_Mode: 5
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: GameoverScene
-          m_BoolArgument: 0
-        m_CallState: 2
   attackOrigin: {fileID: 1556784479}
   hittableLayers:
     serializedVersion: 2
@@ -2521,7 +2506,10 @@ MonoBehaviour:
   loadKey: 114
   stopKey: 101
   duration: 3
+  slowFactor: 0.15
   playerTransform: {fileID: 1015780816}
+  vignetteImage: {fileID: 0}
+  remainingTimeText: {fileID: 0}
 --- !u!4 &1964665739
 Transform:
   m_ObjectHideFlags: 0
