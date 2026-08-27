@@ -75,8 +75,7 @@ public class EnemyController : MonoBehaviour, ISnapshotable, IFreezable
     {
         enemyRb = GetComponent<Rigidbody>();
         currentHealth = maxHealth;
-
-        renderers = GetComponentsInChildren<Renderer>();
+        
         propBlock = new MaterialPropertyBlock();
 
         if (healthBar != null)
