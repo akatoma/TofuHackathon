@@ -105,7 +105,7 @@ public class GameManager : MonoBehaviour, ISnapshotable
     }
 
 
-    void HandleEnemyDefeated()
+    void HandleEnemyDefeated(GameObject defeated)
     {
         if (isGameOver) return;
 
