@@ -218,14 +218,14 @@ public class EnemyController : MonoBehaviour, ISnapshotable, IFreezable
         direction.Normalize();
         EnemyBullet enemyBullet = BulletPool.Instance.Spawn(bulletPrefab);
 
-        if (speedScale < 1f)
-        {
-            FreezableRigidbody freezable = enemyBullet.GetComponent<FreezableRigidbody>();
-            if (freezable != null)
-            {
-                freezable.InitializeFrozen(speedScale);
-            }
-        }
+        // if (speedScale < 1f)
+        // {
+        //     FreezableRigidbody freezable = enemyBullet.GetComponent<FreezableRigidbody>();
+        //     if (freezable != null)
+        //     {
+        //         freezable.InitializeFrozen(speedScale);
+        //     }
+        // }
         enemyBullet.Fire(
             transform.position + direction * 0.8f,
             Quaternion.LookRotation(direction, Vector3.up) * Quaternion.Euler(90f, 0f, 0f),

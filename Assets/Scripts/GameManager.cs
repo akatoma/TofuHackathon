@@ -33,9 +33,6 @@ public class GameManager : MonoBehaviour
     public float darkenFadeDuration = 0.5f;
     Coroutine fadeCoroutine;
 
-    [Header("Game Over")]
-    public UnityEvent onGameOver; // ゲームオーバー時の処理をInspectorで割り当てる
-                                  // (例: GameOverパネルの表示、シーン遷移など)
     bool isGameOver = false;
 
 
