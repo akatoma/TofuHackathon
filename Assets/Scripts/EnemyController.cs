@@ -17,6 +17,13 @@ public class EnemyController : MonoBehaviour, ISnapshotable, IFreezable
     public EnemyHealthBar healthBar; // 頭上に配置したWorld Space Canvasをアサイン
     bool hasBeenHit = false;
 
+    [Header("Damage Flash")]
+    public float flashDuration = 0.1f; // 点滅する時間(秒)
+    public Color flashColor = Color.red; // 点滅時の色
+    private List<Material> enemyMaterials = new List<Material>();
+    private List<Color> originalColors = new List<Color>();
+    private Coroutine flashCoroutine;
+
     [Header("Tracking")]
     public float moveSpeed = 3f;
     public float moveDistance = 15f;
@@ -63,6 +70,20 @@ public class EnemyController : MonoBehaviour, ISnapshotable, IFreezable
             healthBar.SetHealth(currentHealth, maxHealth);
             healthBar.SetVisible(false);
         }
+
+        // 自身および子オブジェクトのRendererからマテリアルと元の色を取得して保持
+        Renderer[] renderers = GetComponentsInChildren<Renderer>();
+        foreach (Renderer rend in renderers)
+        {
+            foreach (Material mat in rend.materials)
+            {
+                if (mat.HasProperty("_Color"))
+                {
+                    enemyMaterials.Add(mat);
+                    originalColors.Add(mat.color);
+                }
+            }
+        }
     }
 
 
@@ -99,12 +120,12 @@ public class EnemyController : MonoBehaviour, ISnapshotable, IFreezable
             Vector3 direction = toTarget / distance;
             enemyRb.MovePosition(enemyRb.position + direction * moveSpeed * speedScale * Time.fixedDeltaTime);
         }
-        else 
+        else
         {
             //攻撃
             Attack();
         }
-        
+
         enemyRb.MoveRotation(Quaternion.LookRotation(toTarget.normalized, Vector3.up));
     }
 
@@ -114,6 +135,9 @@ public class EnemyController : MonoBehaviour, ISnapshotable, IFreezable
 
         currentHealth -= amount;
         Debug.Log($"{name} took {amount} damage. Remaining: {currentHealth}");
+
+        // ダメージ時の赤色点滅処理を呼び出し
+        FlashRed();
 
         if (!hasBeenHit)
         {
@@ -127,10 +151,55 @@ public class EnemyController : MonoBehaviour, ISnapshotable, IFreezable
             Die();
         }
     }
+
+    void FlashRed()
+    {
+        if (flashCoroutine != null)
+        {
+            StopCoroutine(flashCoroutine);
+        }
+        flashCoroutine = StartCoroutine(FlashRoutine());
+    }
+
+    IEnumerator FlashRoutine()
+    {
+        // マテリアルの色を赤に変更
+        for (int i = 0; i < enemyMaterials.Count; i++)
+        {
+            if (enemyMaterials[i] != null)
+            {
+                enemyMaterials[i].color = flashColor;
+            }
+        }
+
+        yield return new WaitForSeconds(flashDuration);
+
+        // 元の色に戻す
+        ResetColor();
+    }
+
+    void ResetColor()
+    {
+        for (int i = 0; i < enemyMaterials.Count; i++)
+        {
+            if (enemyMaterials[i] != null)
+            {
+                enemyMaterials[i].color = originalColors[i];
+            }
+        }
+    }
+
     void Die()
     {
         isDead = true;
         currentHealth = 0;
+
+        // 死亡時に点滅を停止し元の色に戻す
+        if (flashCoroutine != null)
+        {
+            StopCoroutine(flashCoroutine);
+        }
+        ResetColor();
 
         // Destroyではなく非アクティブ化することで、
         // 巻き戻し(Rキー)でセーブ時点が「生存中」なら復活できるようにする
@@ -222,6 +291,13 @@ public class EnemyController : MonoBehaviour, ISnapshotable, IFreezable
         {
             return;
         }
+
+        // スナップショット復元時にも色をリセット
+        if (flashCoroutine != null)
+        {
+            StopCoroutine(flashCoroutine);
+        }
+        ResetColor();
 
         transform.position = state.position;
         transform.rotation = state.rotation;
