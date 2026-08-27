@@ -45,8 +45,8 @@ public class BulletPool : MonoBehaviour
 public class EnemyBullet : MonoBehaviour, ISnapshotable
 {
     public int damage;
-    public float lifetime = 3f;
-    float remainingLifetime = 3f;
+    public float lifetime = 1f;
+    float remainingLifetime = 1f;
     Rigidbody bulletRb;
 
     class BulletState
