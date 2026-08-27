@@ -139,76 +139,32 @@ public class EnemyController : MonoBehaviour, ISnapshotable, IFreezable
     }
 
     void Attack()
+{
+    if (Time.time < nextAttackTime)
     {
-        if (Time.time < nextAttackTime)
-        {
-            return;
-        }
-        nextAttackTime = Time.time + attackCooldown;
+        return;
+    }
+    nextAttackTime = Time.time + attackCooldown;
 
-        Vector3 direction = target.position - transform.position;
-        direction.y = 0f;
-        if (direction.sqrMagnitude <= 0.1f)
-        {
-            return;
-        }
-        
-        GetComponent<AudioSource>().Play();
-        direction.Normalize();
-
-        GameObject bullet = Instantiate(
-            bulletPrefab,
-            transform.position + direction * 0.8f,
-            Quaternion.LookRotation(direction, Vector3.up) * Quaternion.Euler(90f, 0f, 0f));
-
-        Rigidbody bulletRb = bullet.GetComponent<Rigidbody>();
-        bulletRb.velocity = direction * bulletSpeed;
-
-        EnemyBullet enemyBullet = bullet.GetComponent<EnemyBullet>();
-        if (enemyBullet == null)
-        {
-            enemyBullet = bullet.AddComponent<EnemyBullet>();
-        }
-
-        enemyBullet.damage = attackDamage;
-        enemyBullet.lifetime = bulletLifetime;
+    Vector3 direction = target.position - transform.position;
+    direction.y = 0f;
+    if (direction.sqrMagnitude <= 0.1f)
+    {
+        return;
     }
 
-    // TimeStopSkillから呼ばれる。瞬時ではなく、短時間かけて減速して止まる
-    public void Freeze()
-    {
-        StartSpeedTransition(0f, freezeDuration);
-    }
+    GetComponent<AudioSource>().Play();
+    direction.Normalize();
 
-    public void Unfreeze()
-    {
-        StartSpeedTransition(1f, unfreezeDuration);
-    }
-
-    void StartSpeedTransition(float targetScale, float duration)
-    {
-        if (speedTransitionCoroutine != null)
-        {
-            StopCoroutine(speedTransitionCoroutine);
-        }
-        speedTransitionCoroutine = StartCoroutine(SpeedTransitionRoutine(targetScale, duration));
-    }
-
-    IEnumerator SpeedTransitionRoutine(float targetScale, float duration)
-    {
-        float start = speedScale;
-        float t = 0f;
-
-        while (t < duration)
-        {
-            t += Time.deltaTime;
-            float p = duration > 0f ? t / duration : 1f;
-            speedScale = Mathf.Lerp(start, targetScale, p);
-            yield return null;
-        }
-
-        speedScale = targetScale;
-    }
+    EnemyBullet enemyBullet = BulletPool.Instance.Spawn(bulletPrefab);
+    enemyBullet.Fire(
+        transform.position + direction * 0.8f,
+        Quaternion.LookRotation(direction, Vector3.up) * Quaternion.Euler(90f, 0f, 0f),
+        direction * bulletSpeed,
+        attackDamage,
+        bulletLifetime
+    );
+}
 
     //保存
     public object CaptureSnapshot()
