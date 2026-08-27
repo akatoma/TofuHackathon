@@ -27,6 +27,15 @@ public class EnemyController : MonoBehaviour, ISnapshotable, IFreezable
     private List<Color> originalColors = new List<Color>();
     private Coroutine flashCoroutine;
 
+    [Header("Pickable Impact Damage & Knockback Settings")]
+    public ObjectPicker objectPicker; // プレイヤーのObjectPickerをアサイン
+    public string pickableTag = "Pickable";
+    public float minImpactVelocity = 3f;           // ダメージ・ノックバックを発生させる最低衝突速度
+    public float damageMultiplier = 2f;            // 速度に対するダメージ倍率
+    public float knockbackMultiplier = 1.0f;       // 通常のノックバック力倍率
+    public float handHeldKnockbackMultiplier = 2.0f; // 手持ち時の追加ノックバック倍率（例: 2.0なら手持ちで吹き飛ばし2倍）
+    public float upwardForceMultiplier = 0.05f;    // 上方向へ浮かす力の倍率
+
     [Header("Tracking")]
     public float moveSpeed = 3f;
     public float moveDistance = 15f;
@@ -34,7 +43,6 @@ public class EnemyController : MonoBehaviour, ISnapshotable, IFreezable
     public float retreatSpeed = 2f;
     public Transform target;
     bool isRetreating = false;
-
 
     [Header("Attack")]
     public int attackDamage = 10;
@@ -75,7 +83,7 @@ public class EnemyController : MonoBehaviour, ISnapshotable, IFreezable
     {
         enemyRb = GetComponent<Rigidbody>();
         currentHealth = maxHealth;
-        
+
         propBlock = new MaterialPropertyBlock();
 
         if (healthBar != null)
@@ -96,6 +104,12 @@ public class EnemyController : MonoBehaviour, ISnapshotable, IFreezable
                     originalColors.Add(mat.color);
                 }
             }
+        }
+
+        // ObjectPickerが未アサインの場合、自動検索を試みる
+        if (objectPicker == null)
+        {
+            objectPicker = FindObjectOfType<ObjectPicker>();
         }
     }
 
@@ -142,7 +156,6 @@ public class EnemyController : MonoBehaviour, ISnapshotable, IFreezable
         }
     }
 
-
     void FixedUpdate()
     {
         if (speedScale <= 0f)
@@ -153,7 +166,6 @@ public class EnemyController : MonoBehaviour, ISnapshotable, IFreezable
         Vector3 toTarget = target.position - enemyRb.position;
         toTarget.y = 0f;
         float distance = toTarget.magnitude;
-        //Debug.Log(distance);
 
         if (distance <= retreatDistance)
         {
@@ -178,7 +190,7 @@ public class EnemyController : MonoBehaviour, ISnapshotable, IFreezable
         }
         else
         {
-            //攻撃: クールダウンの経過もspeedScaleに合わせて遅くする
+            // 攻撃: クールダウンの経過もspeedScaleに合わせて遅くする
             attackTimer -= Time.fixedDeltaTime * speedScale;
             if (attackTimer <= 0f)
             {
@@ -188,6 +200,70 @@ public class EnemyController : MonoBehaviour, ISnapshotable, IFreezable
         }
 
         enemyRb.MoveRotation(Quaternion.LookRotation(toTarget.normalized, Vector3.up));
+    }
+
+    // Pickableオブジェクトとの衝突判定処理（ダメージ＋後ろ方向ノックバック）
+    private void OnCollisionEnter(Collision collision)
+    {
+        if (isDead) return;
+
+        if (collision.gameObject.CompareTag(pickableTag))
+        {
+            // 物理衝突時の相手の相対速度
+            float impactSpeed = collision.relativeVelocity.magnitude;
+            bool isHeldByPlayer = false;
+
+            // 手持ち中であれば振り回し速度を加味する
+            if (objectPicker != null)
+            {
+                // 手から離れていないかの判定
+                isHeldByPlayer = objectPicker.IsHoldingObject;
+
+                if (isHeldByPlayer && objectPicker.HeldObjectVelocity.magnitude > minImpactVelocity)
+                {
+                    float holdSpeed = objectPicker.HeldObjectVelocity.magnitude;
+                    if (holdSpeed > impactSpeed)
+                    {
+                        impactSpeed = holdSpeed;
+                    }
+                }
+            }
+
+            // 一定以上のスピードでぶつかった場合のみダメージ＆ノックバック
+            if (impactSpeed >= minImpactVelocity)
+            {
+                // 1. ダメージ処理
+                int calculatedDamage = Mathf.RoundToInt(impactSpeed * damageMultiplier);
+                TakeDamage(calculatedDamage);
+
+                // 2. ノックバック処理（手持ち状態なら倍率を掛ける）
+                float effectiveKnockbackMultiplier = knockbackMultiplier;
+                if (isHeldByPlayer)
+                {
+                    effectiveKnockbackMultiplier *= handHeldKnockbackMultiplier;
+                }
+
+                ApplyKnockback(impactSpeed, effectiveKnockbackMultiplier);
+
+                Debug.Log($"Hit by {collision.gameObject.name}! Speed: {impactSpeed:F1}, Damage: {calculatedDamage}, Held: {isHeldByPlayer}");
+            }
+        }
+    }
+
+    void ApplyKnockback(float speed, float currentKnockbackMultiplier)
+    {
+        if (enemyRb == null) return;
+
+        // 敵の向き基準で「後ろ方向（-transform.forward）」を算出
+        Vector3 backwardDirection = -transform.forward;
+        backwardDirection.y = 0f;
+        backwardDirection.Normalize();
+
+        // ノックバックベクトルの計算（真後ろ + 少し上方への力）
+        Vector3 knockbackForce = (backwardDirection + Vector3.up * upwardForceMultiplier) * (speed * currentKnockbackMultiplier);
+
+        // 瞬発的な力として加える
+        enemyRb.AddForce(knockbackForce, ForceMode.Impulse);
     }
 
     public void TakeDamage(int amount)
@@ -286,14 +362,6 @@ public class EnemyController : MonoBehaviour, ISnapshotable, IFreezable
         direction.Normalize();
         EnemyBullet enemyBullet = BulletPool.Instance.Spawn(bulletPrefab);
 
-        // if (speedScale < 1f)
-        // {
-        //     FreezableRigidbody freezable = enemyBullet.GetComponent<FreezableRigidbody>();
-        //     if (freezable != null)
-        //     {
-        //         freezable.InitializeFrozen(speedScale);
-        //     }
-        // }
         enemyBullet.Fire(
             transform.position + direction * 0.8f,
             Quaternion.LookRotation(direction, Vector3.up) * Quaternion.Euler(90f, 0f, 0f),

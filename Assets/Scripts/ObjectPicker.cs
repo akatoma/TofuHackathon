@@ -31,6 +31,13 @@ public class ObjectPicker : MonoBehaviour
     private GameObject heldObject = null;
     private Rigidbody heldRigidbody = null;
 
+    // 手持ち状態フラグ（外部参照用）
+    public bool IsHoldingObject => heldObject != null;
+
+    // 手持ち中の移動速度計算用
+    private Vector3 lastHoldPosition;
+    public Vector3 HeldObjectVelocity { get; private set; } // 手持ちオブジェクトの移動速度
+
     void Start()
     {
         Transform camTransform = Camera.main != null ? Camera.main.transform : transform;
@@ -67,6 +74,7 @@ public class ObjectPicker : MonoBehaviour
             // 保持していない時もカメラ回転の差分を記録しておく
             Transform camTransform = Camera.main != null ? Camera.main.transform : transform;
             lastRotation = camTransform.rotation;
+            HeldObjectVelocity = Vector3.zero;
         }
     }
 
@@ -79,17 +87,26 @@ public class ObjectPicker : MonoBehaviour
         float rotationSpeed = Time.deltaTime > 0f ? angleDiff / Time.deltaTime : 0f;
         lastRotation = camTransform.rotation;
 
-        // 旋回速度に応じて目標の伸び量を計算 (閾値を超えた分を 0 ~ 1 に正規化)
+        // 旋回速度に応じて目標の伸び量を計算
         float speedFactor = Mathf.InverseLerp(rotationSpeedThreshold, maxRotationSpeed, rotationSpeed);
         float targetExtend = speedFactor * maxExtendDistance;
 
-        // 急激な変化を抑えつつ、スムーズに目的の伸び量へ追従（減速時は滑らかに戻る）
+        // スムーズに補間
         currentExtend = Mathf.Lerp(currentExtend, targetExtend, Time.deltaTime * returnSmoothness);
 
         // カメラの前方ベクトル方向に遠心力分だけ位置を伸ばす
         Vector3 extendVector = camTransform.forward * currentExtend;
 
-        heldObject.transform.position = holdPosition.position + extendVector;
+        Vector3 newPos = holdPosition.position + extendVector;
+
+        // 手持ちオブジェクトの1フレームあたりの移動速度(m/s)を算出
+        if (Time.deltaTime > 0f)
+        {
+            HeldObjectVelocity = (newPos - lastHoldPosition) / Time.deltaTime;
+        }
+        lastHoldPosition = newPos;
+
+        heldObject.transform.position = newPos;
         heldObject.transform.rotation = holdPosition.rotation;
     }
 
@@ -120,6 +137,7 @@ public class ObjectPicker : MonoBehaviour
         currentExtend = 0f;
         Transform camTransform = Camera.main != null ? Camera.main.transform : transform;
         lastRotation = camTransform.rotation;
+        lastHoldPosition = holdPosition.position;
 
         heldObject.transform.position = holdPosition.position;
         heldObject.transform.rotation = holdPosition.rotation;
@@ -139,6 +157,7 @@ public class ObjectPicker : MonoBehaviour
         heldObject = null;
         heldRigidbody = null;
         currentExtend = 0f;
+        HeldObjectVelocity = Vector3.zero;
 
         OnObjectDropped?.Invoke(); // イベント通知
     }
@@ -153,6 +172,7 @@ public class ObjectPicker : MonoBehaviour
         heldObject = null;
         heldRigidbody = null;
         currentExtend = 0f;
+        HeldObjectVelocity = Vector3.zero;
 
         if (rb != null)
         {
