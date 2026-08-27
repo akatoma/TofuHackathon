@@ -74,16 +74,23 @@ public class PlayerController : MonoBehaviour, ISnapshotable
     void OnEnable()
     {
         SnapshotManager.OnSnapshotSaved += HandleSnapshotSaved;
+        SnapshotManager.OnSnapshotCleared += HandleSnapshotCleared;
     }
 
     void OnDisable()
     {
         SnapshotManager.OnSnapshotSaved -= HandleSnapshotSaved;
+        SnapshotManager.OnSnapshotCleared -= HandleSnapshotCleared;
     }
 
     void HandleSnapshotSaved()
     {
         hasSaveAvailable = true;
+    }
+
+    void HandleSnapshotCleared()
+    {
+        hasSaveAvailable = false;
     }
 
     void Update()

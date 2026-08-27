@@ -6,12 +6,16 @@ using UnityEngine;
 //敵オブジェクトにアタッチ
 //弾丸と当たり判定は後々お引越し☆
 
-public class EnemyController : MonoBehaviour,  ISnapshotable
+public class EnemyController : MonoBehaviour, ISnapshotable, IFreezable
 {
     [Header("Health")]
     public int maxHealth = 50;
     int currentHealth;
     bool isDead = false;
+
+    [Header("Health Bar")]
+    public EnemyHealthBar healthBar; // 頭上に配置したWorld Space Canvasをアサイン
+    bool hasBeenHit = false;
 
     [Header("Tracking")]
     public float moveSpeed = 3f;
@@ -32,23 +36,43 @@ public class EnemyController : MonoBehaviour,  ISnapshotable
 
     Rigidbody enemyRb;
 
+    [Header("Freeze Transition")]
+    public float freezeDuration = 0.4f;   // 停止までの減速時間(秒)
+    public float unfreezeDuration = 0.4f; // 再開までの加速時間(秒)
+
+    // TimeStopSkillによる速度倍率。1=通常速度、0=完全停止。瞬時ではなく徐々に変化する
+    float speedScale = 1f;
+    Coroutine speedTransitionCoroutine;
+
     class State
     {
         public Vector3 position;
         public Quaternion rotation;
         public int health;
         public bool isDead;
+        public bool hasBeenHit;
     }
 
     void Awake()
     {
         enemyRb = GetComponent<Rigidbody>();
         currentHealth = maxHealth;
+
+        if (healthBar != null)
+        {
+            healthBar.SetHealth(currentHealth, maxHealth);
+            healthBar.SetVisible(false);
+        }
     }
 
 
     void FixedUpdate()
     {
+        if (speedScale <= 0f)
+        {
+            return; // 完全に停止しきっている
+        }
+
         Vector3 toTarget = target.position - enemyRb.position;
         toTarget.y = 0f;
         float distance = toTarget.magnitude;
@@ -67,13 +91,13 @@ public class EnemyController : MonoBehaviour,  ISnapshotable
         {
             // 後退
             Vector3 retreatDirection = -toTarget.normalized;
-            enemyRb.MovePosition(enemyRb.position + retreatDirection * retreatSpeed * Time.fixedDeltaTime);
+            enemyRb.MovePosition(enemyRb.position + retreatDirection * retreatSpeed * speedScale * Time.fixedDeltaTime);
         }
         else if (distance >= moveDistance)
         {
             // 接近
             Vector3 direction = toTarget / distance;
-            enemyRb.MovePosition(enemyRb.position + direction * moveSpeed * Time.fixedDeltaTime);
+            enemyRb.MovePosition(enemyRb.position + direction * moveSpeed * speedScale * Time.fixedDeltaTime);
         }
         else 
         {
@@ -90,6 +114,13 @@ public class EnemyController : MonoBehaviour,  ISnapshotable
 
         currentHealth -= amount;
         Debug.Log($"{name} took {amount} damage. Remaining: {currentHealth}");
+
+        if (!hasBeenHit)
+        {
+            hasBeenHit = true;
+            healthBar?.SetVisible(true);
+        }
+        healthBar?.SetHealth(currentHealth, maxHealth);
 
         if (currentHealth <= 0)
         {
@@ -143,7 +174,8 @@ public class EnemyController : MonoBehaviour,  ISnapshotable
             position = transform.position,
             rotation = transform.rotation,
             health = currentHealth,
-            isDead = isDead
+            isDead = isDead,
+            hasBeenHit = hasBeenHit
         };
     }
 
@@ -159,9 +191,34 @@ public class EnemyController : MonoBehaviour,  ISnapshotable
         transform.rotation = state.rotation;
         currentHealth = state.health;
         isDead = state.isDead;
+        hasBeenHit = state.hasBeenHit;
 
         // セーブ時点で生きていたなら再アクティブ化、死んでいたなら非アクティブのまま
         gameObject.SetActive(!isDead);
 
+        if (healthBar != null)
+        {
+            healthBar.SetHealth(currentHealth, maxHealth);
+            healthBar.SetVisible(hasBeenHit);
+        }
     }
+}
+
+
+//弾丸の挙動☆
+class EnemyBullet : MonoBehaviour
+{
+    public int damage;
+    public float lifetime;
+
+    void Start()
+    {
+        Destroy(gameObject, lifetime);
+    }
+
+    void OnTriggerEnter(Collider other)
+    {
+        Destroy(gameObject);
+    }
+    
 }
