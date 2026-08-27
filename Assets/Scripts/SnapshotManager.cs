@@ -1,8 +1,12 @@
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using UnityEngine.UI;
 
-// スキル関係のスクリプトGameManagerにアタッチ
+// シーンに1つだけ空オブジェクト(例: "GameManager")を作ってアタッチする。
+// Qキー: その瞬間のシーン内の状態を保存
+// Rキー: 直前に保存した状態まで巻き戻す
+// Eキー: セーブがある間だけ発動できるスロー
 //
 // 敵などISnapshotableを実装したオブジェクトは、
 // 保存/復元のたびにシーンから自動的に集められるので、
@@ -12,6 +16,9 @@ public class SnapshotManager : MonoBehaviour
     public static SnapshotManager Instance { get; private set; }
 
     // セーブ/ロードのタイミングを知りたいときに購読するイベント
+    // OnBeforeSaveはキャプチャの「直前」に発火する。ここで状態を変更すれば、
+    // その変更もセーブデータに含められる(=巻き戻しても消えない)
+    public static event System.Action OnBeforeSave;
     public static event System.Action OnSnapshotSaved;
     public static event System.Action OnSnapshotLoaded;
     public static event System.Action OnSnapshotCleared;
@@ -25,11 +32,16 @@ public class SnapshotManager : MonoBehaviour
 
     [Header("Time Stop")]
     public float duration = 3f; // 効果時間(秒)。0以下にすると、もう一度押すまで止まったままになる
+    [Range(0f, 1f)]
+    public float slowFactor = 0.15f; // 0=完全停止, 1=通常速度。スローの度合い
     bool isActive = false;
     float remainingTime = 0f;
-    float speedScale = 0.1f;
     readonly List<IFreezable> frozenTargets = new List<IFreezable>();
     public Transform playerTransform;
+
+    [Header("Time Stop Effect UI")]
+    public Image vignetteImage; // UIVignetteシェーダーのMaterialを設定したUI Image
+    public Text remainingTimeText; // 残り時間表示用(任意)
 
     [Header("Snapshot")]
     readonly Dictionary<ISnapshotable, object> snapshot = new Dictionary<ISnapshotable, object>();
@@ -60,6 +72,8 @@ public class SnapshotManager : MonoBehaviour
     {
         // ゲーム開始地点を最初のセーブポイントにしておく
         SaveSnapshot();
+
+        ResetEffectUI();
     }
 
     void Update()
@@ -86,30 +100,26 @@ public class SnapshotManager : MonoBehaviour
             }
         }
 
-        if (isActive && duration > 0f)
+        if (isActive)
         {
-            remainingTime -= Time.deltaTime;
-            if (remainingTime <= 0f)
+            if (duration > 0f)
             {
-                Deactivate();
+                remainingTime -= Time.deltaTime;
+                if (remainingTime <= 0f)
+                {
+                    Deactivate();
+                }
             }
+
+            UpdateEffectUI();
         }
-    }
-
-    void OnEnable()
-    {
-        // セーブが削除されたら、発動中でも強制的に解除する
-        OnSnapshotCleared += HandleSnapshotCleared;
-    }
-
-    void OnDisable()
-    {
-        OnSnapshotCleared -= HandleSnapshotCleared;
     }
 
     //保存・やり直し
     public void SaveSnapshot()
     {
+        OnBeforeSave?.Invoke(); // キャプチャの前に呼ぶことで、ここでの変更もセーブに含まれる
+
         snapshot.Clear();
 
         // シーン内のISnapshotable実装オブジェクトを毎回集め直す
@@ -155,24 +165,21 @@ public class SnapshotManager : MonoBehaviour
         hasSnapshot = false;
         Debug.Log("[SnapshotManager] セーブデータを削除しました。");
 
-        OnSnapshotCleared?.Invoke();
-    }
-
-    //時間停止
-    void HandleSnapshotCleared()
-    {
+        // セーブが削除されたら、時間停止が発動中でも強制的に解除する
         if (isActive)
         {
             Deactivate();
         }
+
+        OnSnapshotCleared?.Invoke();
     }
 
+    //時間停止
     void TryActivate()
     {
-        bool hasSave = Instance != null && Instance.HasSnapshot;
-        if (!hasSave)
+        if (!hasSnapshot)
         {
-            Debug.Log("[TimeStopSkill] セーブがないため使用できません。");
+            Debug.Log("[SnapshotManager] セーブがないため時間停止は使用できません。");
             return;
         }
 
@@ -188,15 +195,17 @@ public class SnapshotManager : MonoBehaviour
         // シーン内のIFreezable実装オブジェクトを毎回集め直す
         foreach (IFreezable target in FindObjectsOfType<MonoBehaviour>().OfType<IFreezable>())
         {
-            if (target is MonoBehaviour mb && mb.transform.root == playerTransform.root)
+            // プレイヤー配下のものは対象外
+            if (playerTransform != null && target is MonoBehaviour mb && mb.transform.root == playerTransform.root)
             {
-                continue; // ループ内なら continue;
+                continue;
             }
 
-            target.Freeze(speedScale);
+            target.Freeze(slowFactor);
             frozenTargets.Add(target);
         }
-        Debug.Log($"[TimeStopSkill] Activated. Frozen: {frozenTargets.Count}");
+
+        Debug.Log($"[SnapshotManager] TimeStop Activated. Frozen: {frozenTargets.Count}");
     }
     public void Deactivate()
     {
@@ -219,6 +228,37 @@ public class SnapshotManager : MonoBehaviour
         frozenTargets.Clear();
         isActive = false;
 
-        Debug.Log("[TimeStopSkill] Deactivated.");
+        ResetEffectUI();
+
+        Debug.Log("[SnapshotManager] TimeStop Deactivated.");
+    }
+
+    void UpdateEffectUI()
+    {
+        if (vignetteImage != null && vignetteImage.material != null)
+        {
+            float strength = 1f - slowFactor;
+            vignetteImage.material.SetFloat("_Intensity", strength);
+        }
+
+        if (remainingTimeText != null)
+        {
+            remainingTimeText.text = duration > 0f
+                ? Mathf.CeilToInt(remainingTime).ToString()
+                : "";
+        }
+    }
+
+    void ResetEffectUI()
+    {
+        if (vignetteImage != null && vignetteImage.material != null)
+        {
+            vignetteImage.material.SetFloat("_Intensity", 0f);
+        }
+
+        if (remainingTimeText != null)
+        {
+            remainingTimeText.text = "";
+        }
     }
 }

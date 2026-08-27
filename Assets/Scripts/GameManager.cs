@@ -5,7 +5,7 @@ using UnityEngine.UI;
 using UnityEngine.Events;
 using UnityEngine.SceneManagement;
 
-public class GameManager : MonoBehaviour
+public class GameManager : MonoBehaviour, ISnapshotable
 {
     [Header("References")]
     public PlayerController playerController;
@@ -33,8 +33,16 @@ public class GameManager : MonoBehaviour
     public float darkenFadeDuration = 0.5f;
     Coroutine fadeCoroutine;
 
+    [Header("Game Over")]
+    public UnityEvent onGameOver; // ゲームオーバー時の処理をInspectorで割り当てる
+                                  // (例: GameOverパネルの表示、シーン遷移など)
     bool isGameOver = false;
 
+    // セーブ/巻き戻しで保存したい情報
+    class State
+    {
+        public float gaugeValue;
+    }
 
     void Start()
     {
@@ -49,6 +57,10 @@ public class GameManager : MonoBehaviour
 
         EnemyController.OnEnemyDefeated += HandleEnemyDefeated;
 
+        // セーブのコスト加算だけはOnBeforeSave(キャプチャの直前)に繋ぐ。
+        // OnSnapshotSaved(キャプチャの後)のままだと、セーブ直後に巻き戻した時に
+        // このコストがなかったことになってしまうため
+        SnapshotManager.OnBeforeSave += HandleBeforeSave;
         SnapshotManager.OnSnapshotSaved += HandleSaved;
         SnapshotManager.OnSnapshotLoaded += HandleLoaded;
         SnapshotManager.OnSnapshotCleared += HandleCleared;
@@ -63,15 +75,22 @@ public class GameManager : MonoBehaviour
 
         EnemyController.OnEnemyDefeated -= HandleEnemyDefeated;
 
+        SnapshotManager.OnBeforeSave -= HandleBeforeSave;
         SnapshotManager.OnSnapshotSaved -= HandleSaved;
         SnapshotManager.OnSnapshotLoaded -= HandleLoaded;
         SnapshotManager.OnSnapshotCleared -= HandleCleared;
     }
 
     //UI
+    void HandleBeforeSave()
+    {
+        // キャプチャされる前に加算するので、この後に巻き戻してもコストは消えない
+        Increase(increaseOnSave);
+    }
+
     void HandleSaved()
     {
-        Increase(increaseOnSave);
+        // こちらは見た目の演出だけなので、キャプチャの前後どちらでも問題ない
         SpawnRipple();
         FadeDarken(darkenTargetAlpha);
     }
@@ -201,5 +220,26 @@ public class GameManager : MonoBehaviour
         Color c = darkenOverlay.color;
         c.a = alpha;
         darkenOverlay.color = c;
+    }
+
+    //保存
+    public object CaptureSnapshot()
+    {
+        return new State
+        {
+            gaugeValue = currentValue
+        };
+    }
+
+    //復元
+    public void RestoreSnapshot(object snapshot)
+    {
+        if (snapshot is not State state)
+        {
+            return;
+        }
+
+        currentValue = state.gaugeValue;
+        gaugeSlider.value = currentValue;
     }
 }
