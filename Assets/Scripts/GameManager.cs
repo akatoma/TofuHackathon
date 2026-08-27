@@ -152,7 +152,7 @@ public class GameManager : MonoBehaviour
         panelRoutine = null;
     }
 
-    //波紋
+    //波紋などの演出
     void SpawnRipple()
     {
         if (ripplePrefab == null || player == null)
