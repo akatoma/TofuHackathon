@@ -2437,7 +2437,7 @@ GameObject:
   - component: {fileID: 2144443366}
   - component: {fileID: 2144443367}
   m_Layer: 5
-  m_Name: HPSlider
+  m_Name: EnemyHPSlider
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

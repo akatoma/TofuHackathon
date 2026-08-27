@@ -31,10 +31,21 @@ public class SnapshotManager : MonoBehaviour
     {
         if (Instance != null && Instance != this)
         {
+            Debug.Log($"[SnapshotManager] 既存のInstanceがあるため、こちら({name})は自身を破棄します。");
             Destroy(gameObject);
             return;
         }
         Instance = this;
+        Debug.Log($"[SnapshotManager] Awake. Instance = {name} (id:{GetInstanceID()})");
+    }
+
+    void OnDestroy()
+    {
+        // シーン再ロード時、破棄される自分自身がInstanceを持ったままにならないようにする
+        if (Instance == this)
+        {
+            Instance = null;
+        }
     }
 
     void Update()

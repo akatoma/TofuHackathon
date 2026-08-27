@@ -231,7 +231,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   titlePanel: {fileID: 211037413}
   menuPanel: {fileID: 1367190388}
-  gameSceneName: Main
+  gameSceneName: FuruMain
 --- !u!4 &213909686
 Transform:
   m_ObjectHideFlags: 0
