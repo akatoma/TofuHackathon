@@ -17,14 +17,25 @@ public class GameManager : MonoBehaviour
     public float increaseOnSave = 10f; // セーブ(Q)1回あたりの増加量
     public float increaseOnLoad = 10f; // 巻き戻し(R)1回あたりの増加量
 
+
+    [Header("Bullets Hit Effect")]
+    public GameObject panel;
+    private Coroutine panelRoutine;
+
+    [Header("Wave")]
+    public Transform player;        // 波紋の発生位置(Playerをアサイン)
+    public GameObject ripplePrefab; // RippleEffectを付けたQuadのプレハブ
+
+    [Header("Darken Overlay")]
+    public Image darkenOverlay;     // 画面全体を覆うUI Image(初期アルファ0にしておく)
+    public float darkenTargetAlpha = 0.6f;
+    public float darkenFadeDuration = 0.5f;
+    Coroutine fadeCoroutine;
+
     [Header("Game Over")]
     public UnityEvent onGameOver; // ゲームオーバー時の処理をInspectorで割り当てる
                                   // (例: GameOverパネルの表示、シーン遷移など)
     bool isGameOver = false;
-
-    [Header("Effect")]
-    public GameObject panel;
-    private Coroutine panelRoutine;
 
 
     void Start()
@@ -40,6 +51,11 @@ public class GameManager : MonoBehaviour
 
         SnapshotManager.OnSnapshotSaved += HandleSaved;
         SnapshotManager.OnSnapshotLoaded += HandleLoaded;
+        SnapshotManager.OnSnapshotCleared += HandleCleared;
+
+        // 起動時、既にセーブがある状態なら暗転も即座に反映しておく
+        bool currentlySaved = SnapshotManager.Instance != null && SnapshotManager.Instance.HasSnapshot;
+        SetDarkenImmediate(currentlySaved ? darkenTargetAlpha : 0f);
 
     }
     void OnDisable()
@@ -48,6 +64,8 @@ public class GameManager : MonoBehaviour
 
         SnapshotManager.OnSnapshotSaved -= HandleSaved;
         SnapshotManager.OnSnapshotLoaded -= HandleLoaded;
+        SnapshotManager.OnSnapshotCleared -= HandleCleared;
+
     }
 
     //UI
@@ -59,11 +77,18 @@ public class GameManager : MonoBehaviour
     void HandleSaved()
     {
         Increase(increaseOnSave);
+        SpawnRipple();
+        FadeDarken(darkenTargetAlpha);
     }
     void HandleLoaded()
     {
         Increase(increaseOnLoad);
     }
+    void HandleCleared()
+    {
+        FadeDarken(0f);
+    }
+
     void Increase(float amount)
     {
         if (isGameOver) return;
@@ -100,5 +125,58 @@ public class GameManager : MonoBehaviour
         yield return new WaitForSeconds(seconds);
         panel.SetActive(false);
         panelRoutine = null;
+    }
+
+    //波紋
+    void SpawnRipple()
+    {
+        if (ripplePrefab == null || player == null)
+        {
+            return;
+        }
+
+        Instantiate(ripplePrefab, player.position - Vector3.down * 0.4f, Quaternion.identity);
+    }
+
+    void FadeDarken(float targetAlpha)
+    {
+        if (fadeCoroutine != null)
+        {
+            StopCoroutine(fadeCoroutine);
+        }
+        fadeCoroutine = StartCoroutine(FadeDarkenRoutine(targetAlpha));
+    }
+
+    IEnumerator FadeDarkenRoutine(float targetAlpha)
+    {
+        if (darkenOverlay == null)
+        {
+            yield break;
+        }
+
+        float startAlpha = darkenOverlay.color.a;
+        float t = 0f;
+
+        while (t < darkenFadeDuration)
+        {
+            t += Time.deltaTime;
+            float a = Mathf.Lerp(startAlpha, targetAlpha, t / darkenFadeDuration);
+            SetDarkenImmediate(a);
+            yield return null;
+        }
+
+        SetDarkenImmediate(targetAlpha);
+    }
+
+    void SetDarkenImmediate(float alpha)
+    {
+        if (darkenOverlay == null)
+        {
+            return;
+        }
+
+        Color c = darkenOverlay.color;
+        c.a = alpha;
+        darkenOverlay.color = c;
     }
 }
