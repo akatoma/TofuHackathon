@@ -105,7 +105,6 @@ public class MissionManager : MonoBehaviour
         OnMissionCleared?.Invoke();
 
         // 常時ロック/非表示にしているカーソルを解放する
-        // (これをしないと、この後のInputField/ボタンが一切操作できない)
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
 
@@ -166,6 +165,7 @@ public class MissionManager : MonoBehaviour
             resultPanel.SetActive(true);
         }
 
+        Time.timeScale = 0f;
         Debug.Log($"[MissionManager] Mission Cleared. Survivors: {survivorCount}, Time: {FormatTime(clearTime)}");
     }
 
