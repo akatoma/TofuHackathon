@@ -6,7 +6,7 @@ using UnityEngine.Events;
 using UnityEngine.SceneManagement;
 
 
-public class GameManager : MonoBehaviour
+public class GameManager : MonoBehaviour, ISnapshotable
 {
     [Header("References")]
     public PlayerController playerController;
@@ -42,6 +42,7 @@ public class GameManager : MonoBehaviour
     Coroutine fadeCoroutine;
 
     bool isGameOver = false;
+    bool isMissionCleared = false; // ミッションクリア後は、ゲージの増加をすべて止める
 
     class State
     {
@@ -59,10 +60,14 @@ public class GameManager : MonoBehaviour
         playerController.OnHealthChanged += HandleHealthChanged;
         HandleHealthChanged(playerController.currentHealth, playerController.maxHealth);
 
+        EnemyController.OnEnemyDefeated += HandleEnemyDefeated;
+
         SnapshotManager.OnBeforeSave += HandleBeforeSave;
         SnapshotManager.OnSnapshotSaved += HandleSaved;
         SnapshotManager.OnSnapshotLoaded += HandleLoaded;
         SnapshotManager.OnSnapshotCleared += HandleCleared;
+
+        MissionManager.OnMissionCleared += HandleMissionCleared;
 
         if (objectPicker != null)
         {
@@ -87,7 +92,8 @@ public class GameManager : MonoBehaviour
         SnapshotManager.OnSnapshotLoaded -= HandleLoaded;
         SnapshotManager.OnSnapshotCleared -= HandleCleared;
 
-        // 追記: ObjectPickerのイベント購読解除
+        MissionManager.OnMissionCleared -= HandleMissionCleared;
+
         if (objectPicker != null)
         {
             objectPicker.OnObjectPicked -= HandleObjectPicked;
@@ -109,7 +115,7 @@ public class GameManager : MonoBehaviour
     }
     void HandleSaved()
     {
-        Increase(increaseOnSave);
+        // ゲージ加算はHandleBeforeSave側で既に行っているので、ここでは演出のみ
         SpawnRipple();
         FadeDarken(darkenTargetAlpha);
     }
@@ -124,12 +130,17 @@ public class GameManager : MonoBehaviour
 
     void HandleEnemyDefeated(GameObject defeated)
     {
-        if (isGameOver) return;
+        if (isGameOver || isMissionCleared) return;
 
         // 敵を倒すとゲージが全回復する
         currentValue = 0f;
         gaugeSlider.value = currentValue;
         Debug.Log("[GameManager] Enemy defeated - gauge fully recovered.");
+    }
+
+    void HandleMissionCleared()
+    {
+        isMissionCleared = true;
     }
 
     void Update()
@@ -177,7 +188,7 @@ public class GameManager : MonoBehaviour
 
     void Increase(float amount)
     {
-        if (isGameOver) return;
+        if (isGameOver || isMissionCleared) return;
 
         currentValue = Mathf.Min(currentValue + amount, maxValue);
         gaugeSlider.value = currentValue;

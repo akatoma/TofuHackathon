@@ -23,6 +23,7 @@ public class MissionManager : MonoBehaviour
     [Header("Victory Slow Motion")]
     public float slowMotionTimeScale = 0.1f; // クリア演出中のTime.timeScale(プレイヤーも含め全体に効く)
     public float slowMotionDuration = 1.5f;  // 演出を見せる実時間(秒。Time.timeScaleの影響を受けない)
+    public static event System.Action OnMissionCleared;
 
     int defeatedCount = 0;
     float startTime;
@@ -89,6 +90,9 @@ public class MissionManager : MonoBehaviour
     {
         isCleared = true;
 
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
+
         if (missionPanel != null)
         {
             missionPanel.SetActive(false);
@@ -100,6 +104,7 @@ public class MissionManager : MonoBehaviour
         float clearTime = Time.time - startTime;
 
         StartCoroutine(VictorySlowMotionRoutine(survivorCount, clearTime));
+        OnMissionCleared?.Invoke();
     }
 
     IEnumerator VictorySlowMotionRoutine(int survivorCount, float clearTime)
