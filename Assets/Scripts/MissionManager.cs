@@ -27,7 +27,6 @@ public class MissionManager : MonoBehaviour
     [Header("Victory Slow Motion")]
     public float slowMotionTimeScale = 0.1f; // クリア演出中のTime.timeScale(プレイヤーも含め全体に効く)
     public float slowMotionDuration = 1.5f;  // 演出を見せる実時間(秒。Time.timeScaleの影響を受けない)
-    public static event System.Action OnMissionCleared;
 
     [Header("Clear Mail")]
     public MailSender mailSender;
