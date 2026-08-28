@@ -5,10 +5,12 @@ using UnityEngine.UI;
 using UnityEngine.Events;
 using UnityEngine.SceneManagement;
 
+
 public class GameManager : MonoBehaviour, ISnapshotable
 {
     [Header("References")]
     public PlayerController playerController;
+    public ObjectPicker objectPicker;
     public Slider healthSlider;
     public Slider gaugeSlider;
 
@@ -18,6 +20,11 @@ public class GameManager : MonoBehaviour, ISnapshotable
     public float fillRate = 5f; // セーブがある間、1秒あたりに増える量
     public float increaseOnSave = 5f; // Qを押すたびに追加で増える量
     public float increaseOnLoad = 5f; // Rを押すたびに追加で増える量
+
+    [Header("Object Pick Gauge Settings")]
+    public float increasePerSecondWhileHolding = 2f; // 保持中の1秒あたりの増加量
+    public float increaseOnThrow = 5f;               // 投擲(左クリック)時の増加量
+    private Coroutine holdGaugeCoroutine;
 
     [Header("Bullets Hit Effect")]
     public GameObject panel;
@@ -57,6 +64,7 @@ public class GameManager : MonoBehaviour, ISnapshotable
         HandleHealthChanged(playerController.currentHealth, playerController.maxHealth);
 
         EnemyController.OnEnemyDefeated += HandleEnemyDefeated;
+        EnemyController.OnEnemyDefeated += HandleEnemyDefeated;
 
         // セーブのコスト加算だけはOnBeforeSave(キャプチャの直前)に繋ぐ。
         // OnSnapshotSaved(キャプチャの後)のままだと、セーブ直後に巻き戻した時に
@@ -67,6 +75,13 @@ public class GameManager : MonoBehaviour, ISnapshotable
         SnapshotManager.OnSnapshotCleared += HandleCleared;
 
         MissionManager.OnMissionCleared += HandleMissionCleared;
+
+        if (objectPicker != null)
+        {
+            objectPicker.OnObjectPicked += HandleObjectPicked;
+            objectPicker.OnObjectDropped += HandleObjectDropped;
+            objectPicker.OnObjectThrown += HandleObjectThrown;
+        }
 
         // 起動時、既にセーブがある状態なら暗転も即座に反映しておく
         bool currentlySaved = SnapshotManager.Instance != null && SnapshotManager.Instance.HasSnapshot;
@@ -84,6 +99,13 @@ public class GameManager : MonoBehaviour, ISnapshotable
         SnapshotManager.OnSnapshotCleared -= HandleCleared;
 
         MissionManager.OnMissionCleared -= HandleMissionCleared;
+        
+        if (objectPicker != null)
+        {
+            objectPicker.OnObjectPicked -= HandleObjectPicked;
+            objectPicker.OnObjectDropped -= HandleObjectDropped;
+            objectPicker.OnObjectThrown -= HandleObjectThrown;
+        }
     }
 
     void HandleMissionCleared()
@@ -92,6 +114,11 @@ public class GameManager : MonoBehaviour, ISnapshotable
     }
 
     //UI
+    void HandleHealthChanged(int current, int max)
+    {
+        healthSlider.maxValue = max;
+        healthSlider.value = current;
+    }
     void HandleBeforeSave()
     {
         // キャプチャされる前に加算するので、この後に巻き戻してもコストは消えない
@@ -100,7 +127,7 @@ public class GameManager : MonoBehaviour, ISnapshotable
 
     void HandleSaved()
     {
-        // こちらは見た目の演出だけなので、キャプチャの前後どちらでも問題ない
+        // ゲージ加算はHandleBeforeSave側で既に行っているので、ここでは演出のみ
         SpawnRipple();
         FadeDarken(darkenTargetAlpha);
     }
@@ -135,15 +162,42 @@ public class GameManager : MonoBehaviour, ISnapshotable
         }
     }
 
-    //UI
-    void HandleHealthChanged(int current, int max)
+// オブジェクト保持・離す・投擲処理
+    void HandleObjectPicked()
     {
-        healthSlider.maxValue = max;
-        healthSlider.value = current;
+        if (holdGaugeCoroutine != null)
+        {
+            StopCoroutine(holdGaugeCoroutine);
+        }
+        holdGaugeCoroutine = StartCoroutine(HoldGaugeRoutine());
     }
+    void HandleObjectDropped()
+    {
+        if (holdGaugeCoroutine != null)
+        {
+            StopCoroutine(holdGaugeCoroutine);
+            holdGaugeCoroutine = null;
+        }
+    }
+    void HandleObjectThrown()
+    {
+        HandleObjectDropped();
+        Increase(increaseOnThrow); // 投擲時に5ゲージ増加
+    }
+
+    // 1秒ごとに2ずつゲージを増加させるコルーチン
+    IEnumerator HoldGaugeRoutine()
+    {
+        while (true)
+        {
+            yield return new WaitForSeconds(1f);
+            Increase(increasePerSecondWhileHolding);
+        }
+    }
+
     void Increase(float amount)
     {
-        if (isGameOver || isMissionCleared) return;
+        if (isGameOver) return;
 
         currentValue = Mathf.Min(currentValue + amount, maxValue);
         gaugeSlider.value = currentValue;
