@@ -304,7 +304,8 @@ public class EnemyController : MonoBehaviour, ISnapshotable, IFreezable
     {
         foreach (string tag in obstacleTags)
         {
-            if (obj.CompareTag(tag)) return true;
+           // 未登録タグでもエラーにならず false を返す
+           if (obj.tag == tag) return true;
         }
         return false;
     }
