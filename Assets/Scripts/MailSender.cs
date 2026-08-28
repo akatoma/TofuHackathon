@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Events;
 using MailKit.Net.Smtp;
@@ -16,6 +17,14 @@ using MimeKit.Text;
 // 使い捨て/専用アカウントを用意することを強く推奨します。
 public class MailSender : MonoBehaviour
 {
+    [System.Serializable]
+    public class MailTemplate
+    {
+        public string subject;
+        [TextArea(3, 10)]
+        public string body;
+    }
+
     [Header("SMTP Settings")]
     public string smtpHost = "smtp.gmail.com";
     public int smtpPort = 587;
@@ -24,7 +33,14 @@ public class MailSender : MonoBehaviour
 
     [Header("Mail Content")]
     public string fromAddress = "your-account@gmail.com";
-    public string fromDisplayName = "ゲーム名";
+    public string fromDisplayName = "ゲーム名"; // MobNameRegistryに登録名が無い場合のフォールバック
+
+    [Header("Mail Templates")]
+    [Tooltip("ここに複数登録しておくと、送信のたびにランダムで1つ選ばれる")]
+    public List<MailTemplate> templates = new List<MailTemplate>();
+
+    [Header("Default Subject/Body")]
+    [Tooltip("Templatesが空の場合に使われるフォールバック")]
     public string subject = "【称号獲得】ゲームクリアおめでとうございます！";
     [TextArea(3, 10)]
     public string body = "この度はゲームクリア、おめでとうございます！\nあなたに称号「○○」を贈ります。";
@@ -43,13 +59,31 @@ public class MailSender : MonoBehaviour
             return;
         }
 
+        // Templatesが登録されていればランダムに1つ選ぶ。無ければ従来のSubject/Bodyを使う
+        string mailSubject = subject;
+        string mailBody = body;
+
+        if (templates != null && templates.Count > 0)
+        {
+            MailTemplate template = templates[Random.Range(0, templates.Count)];
+            mailSubject = template.subject;
+            mailBody = template.body;
+        }
+
+        // プレイヤーが登録した名前があれば、その中からランダムに送信者名を選ぶ
+        string senderName = fromDisplayName;
+        if (MobNameRegistry.Names.Count > 0)
+        {
+            senderName = MobNameRegistry.Names[Random.Range(0, MobNameRegistry.Names.Count)];
+        }
+
         MimeMessage message = new MimeMessage();
-        message.From.Add(new MailboxAddress(fromDisplayName, fromAddress));
+        message.From.Add(new MailboxAddress(senderName, fromAddress));
         message.To.Add(MailboxAddress.Parse(toAddress));
-        message.Subject = subject;
+        message.Subject = mailSubject;
         message.Body = new TextPart(TextFormat.Plain)
         {
-            Text = body
+            Text = mailBody
         };
 
         using SmtpClient client = new SmtpClient();
