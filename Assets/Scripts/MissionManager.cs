@@ -9,6 +9,7 @@ public class MissionManager : MonoBehaviour
 {
     // ミッションクリアの瞬間に通知される(ゲージなど、他のシステムが購読するだけでよい)
     public static event System.Action OnMissionCleared;
+    public static bool isPaused = false;
 
     [Header("Mission Settings")]
     public int targetKillCount = 5;
@@ -47,6 +48,7 @@ public class MissionManager : MonoBehaviour
         startTime = Time.time;
         defeatedCount = 0;
         isCleared = false;
+        isPaused = false;
 
         if (missionPanel != null)
         {
@@ -102,6 +104,7 @@ public class MissionManager : MonoBehaviour
     void ClearMission()
     {
         isCleared = true;
+        isPaused = true;
         OnMissionCleared?.Invoke();
 
         // 常時ロック/非表示にしているカーソルを解放する
@@ -165,7 +168,6 @@ public class MissionManager : MonoBehaviour
             resultPanel.SetActive(true);
         }
 
-        Time.timeScale = 0f;
         Debug.Log($"[MissionManager] Mission Cleared. Survivors: {survivorCount}, Time: {FormatTime(clearTime)}");
     }
 

@@ -3,8 +3,7 @@ using UnityEngine;
 using TMPro;
 
 // 味方(モブ)にアタッチする。AllySpawnerで配置されるPrefabに付けておく。
-// 敵から距離をとって逃げる/怖くて震えて動けなくなる/クリア時に喜んでジャンプする、
-// および頭上への名前表示(MobNameAssignerから呼ばれる)を行う。
+// 敵から距離をとって逃げる/怖くて震えて動けなくなる/クリア時に喜んでジャンプする、を行う。
 [RequireComponent(typeof(Rigidbody))]
 public class AllyController : MonoBehaviour
 {
