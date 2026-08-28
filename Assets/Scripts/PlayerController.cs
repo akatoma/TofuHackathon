@@ -7,7 +7,7 @@ using UnityEngine.SceneManagement;
 public class PlayerController : MonoBehaviour, ISnapshotable
 {
     [Header("Movement")]
-    public float moveSpeed = 2f;
+    public float moveSpeed = 5f;
 
     [Header("Look (Yaw)")]
     public float mouseSensitivity = 220f;
@@ -171,7 +171,10 @@ public class PlayerController : MonoBehaviour, ISnapshotable
             move.Normalize();
         }
 
-        rb.MovePosition(rb.position + move * moveSpeed * Time.fixedDeltaTime);
+        Vector3 targetVelocity = move * moveSpeed;
+        targetVelocity.y = rb.velocity.y; 
+    
+        rb.velocity = targetVelocity;
     }
 
     void TryJump()

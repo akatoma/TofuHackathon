@@ -4,7 +4,6 @@ using UnityEngine;
 
 //敵のメイン挙動
 //敵オブジェクトにアタッチ
-//弾丸と当たり判定は後々お引越し☆
 
 public class EnemyController : MonoBehaviour, ISnapshotable, IFreezable
 {
@@ -57,7 +56,7 @@ public class EnemyController : MonoBehaviour, ISnapshotable, IFreezable
     private Vector3 avoidSideDirection = Vector3.right;
 
     [Header("Attack")]
-    public int attackDamage = 10;
+    public int attackDamage = 40;
     public float attackCooldown = 1f;
     public float bulletSpeed = 15f;
     public float bulletLifetime = 3f;
@@ -481,7 +480,7 @@ public class EnemyController : MonoBehaviour, ISnapshotable, IFreezable
             }
         }
         enemyBullet.Fire(
-            transform.position + direction * 0.8f,
+            transform.position + direction * 0.8f + Vector3.up * 0.5f, // 少し前方かつ上方に発射位置を調整
             Quaternion.LookRotation(direction, Vector3.up) * Quaternion.Euler(90f, 0f, 0f),
             direction * bulletSpeed,
             attackDamage,
