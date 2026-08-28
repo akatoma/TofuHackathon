@@ -1,7 +1,9 @@
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
-using UnityEngine.UI;
+using TMPro;
+using UnityEngine.Rendering.PostProcessing;
 
 // シーンに1つだけ空オブジェクト(例: "GameManager")を作ってアタッチする。
 // Qキー: その瞬間のシーン内の状態を保存
@@ -30,12 +32,6 @@ public class SnapshotManager : MonoBehaviour
     public KeyCode loadKey = KeyCode.R; // 巻き戻し
     public KeyCode stopKey = KeyCode.E; //時間停止
 
-    [Header("Audio")]
-    public AudioSource audioSave;
-    public AudioSource audioRetry;
-    public AudioSource audioTimeStop;
-
-
     [Header("Time Stop")]
     public float duration = 3f; // 効果時間(秒)。0以下にすると、もう一度押すまで止まったままになる
     [Range(0f, 1f)]
@@ -46,8 +42,16 @@ public class SnapshotManager : MonoBehaviour
     public Transform playerTransform;
 
     [Header("Time Stop Effect UI")]
-    public Image vignetteImage; // UIVignetteシェーダーのMaterialを設定したUI Image
-    public Text remainingTimeText; // 残り時間表示用(任意)
+    public PostProcessVolume postProcessVolume; // Vignetteを含んだPost-process Volumeをアサイン
+    public TMP_Text remainingTimeText; // 残り時間表示用(任意)
+    [Range(0f, 1f)]
+    public float maxVignetteIntensity = 1f; // Intensityがどこまで上がるか(0=常に出ない, 1=最大まで出る)
+    public float vignetteRampInDuration = 0.4f;  // 発動時、Vignetteが最大になるまでの時間
+    public float vignetteRampOutDuration = 1.5f; // 解除時、Vignetteが消えるまでの時間
+    public float textFadeOutDuration = 1f;       // 残り時間が0になった時、テキストが消えるまでの時間
+    Vignette vignette;
+    Coroutine vignetteCoroutine;
+    Coroutine textFadeCoroutine;
 
     [Header("Snapshot")]
     readonly Dictionary<ISnapshotable, object> snapshot = new Dictionary<ISnapshotable, object>();
@@ -63,6 +67,19 @@ public class SnapshotManager : MonoBehaviour
         }
         Instance = this;
         Debug.Log($"[SnapshotManager] Awake. Instance = {name} (id:{GetInstanceID()})");
+
+        if (postProcessVolume != null && postProcessVolume.profile != null)
+        {
+            postProcessVolume.profile.TryGetSettings(out vignette);
+
+            // Intensityの「有効化(overrideState)」チェックがオフだと、
+            // .valueに値を入れても一切反映されないため、ここで強制的にオンにしておく
+            if (vignette != null)
+            {
+                vignette.intensity.overrideState = true;
+                vignette.intensity.value = 0f;
+            }
+        }
     }
 
     void OnDestroy()
@@ -93,13 +110,10 @@ public class SnapshotManager : MonoBehaviour
         {
             // 常に上書き保存する(トグル/削除はしない)
             SaveSnapshot();
-            audioSave.Play();
-            
         }
         else if (Input.GetKeyDown(loadKey))
         {
             LoadSnapshot();
-            audioRetry.Play();
         }
 
         if (Input.GetKeyDown(stopKey))
@@ -110,7 +124,7 @@ public class SnapshotManager : MonoBehaviour
             }
             else
             {
-                Activate();
+                TryActivate();
             }
         }
 
@@ -188,8 +202,8 @@ public class SnapshotManager : MonoBehaviour
         OnSnapshotCleared?.Invoke();
     }
 
-    //時間停止  
-    void Activate()
+    //時間停止
+    void TryActivate()
     {
         if (!hasSnapshot)
         {
@@ -197,10 +211,10 @@ public class SnapshotManager : MonoBehaviour
             return;
         }
 
-        audioTimeStop.time = 0f;
-        audioTimeStop.pitch = 1.0f;
-        audioTimeStop.Play();
-
+        Activate();
+    }
+    void Activate()
+    {
         isActive = true;
         remainingTime = duration;
 
@@ -219,6 +233,8 @@ public class SnapshotManager : MonoBehaviour
             frozenTargets.Add(target);
         }
 
+        RampVignette((1f - slowFactor) * maxVignetteIntensity, vignetteRampInDuration);
+
         Debug.Log($"[SnapshotManager] TimeStop Activated. Frozen: {frozenTargets.Count}");
     }
     public void Deactivate()
@@ -227,10 +243,6 @@ public class SnapshotManager : MonoBehaviour
         {
             return;
         }
-
-        audioTimeStop.time = audioTimeStop.clip.length - 0.01f;
-        audioTimeStop.pitch = -1.0f;
-        audioTimeStop.Play();
 
         foreach (IFreezable target in frozenTargets)
         {
@@ -246,32 +258,97 @@ public class SnapshotManager : MonoBehaviour
         frozenTargets.Clear();
         isActive = false;
 
-        ResetEffectUI();
+        RampVignette(0f, vignetteRampOutDuration);
+        FadeOutText(textFadeOutDuration);
 
         Debug.Log("[SnapshotManager] TimeStop Deactivated.");
     }
 
-    void UpdateEffectUI()
+    void RampVignette(float targetIntensity, float duration)
     {
-        if (vignetteImage != null && vignetteImage.material != null)
+        if (vignette == null)
         {
-            float strength = 1f - slowFactor;
-            vignetteImage.material.SetFloat("_Intensity", strength);
+            return;
         }
 
+        if (vignetteCoroutine != null)
+        {
+            StopCoroutine(vignetteCoroutine);
+        }
+        vignetteCoroutine = StartCoroutine(VignetteRampRoutine(targetIntensity, duration));
+    }
+
+    IEnumerator VignetteRampRoutine(float targetIntensity, float duration)
+    {
+        float start = vignette.intensity.value;
+        float t = 0f;
+
+        while (t < duration)
+        {
+            t += Time.deltaTime;
+            float p = duration > 0f ? t / duration : 1f;
+            vignette.intensity.value = Mathf.Lerp(start, targetIntensity, p);
+            yield return null;
+        }
+
+        vignette.intensity.value = targetIntensity;
+    }
+
+    void FadeOutText(float duration)
+    {
+        if (remainingTimeText == null)
+        {
+            return;
+        }
+
+        if (textFadeCoroutine != null)
+        {
+            StopCoroutine(textFadeCoroutine);
+        }
+        textFadeCoroutine = StartCoroutine(TextFadeOutRoutine(duration));
+    }
+
+    IEnumerator TextFadeOutRoutine(float duration)
+    {
+        Color startColor = remainingTimeText.color;
+        float startAlpha = startColor.a;
+        float t = 0f;
+
+        while (t < duration)
+        {
+            t += Time.deltaTime;
+            float p = duration > 0f ? t / duration : 1f;
+            Color c = remainingTimeText.color;
+            c.a = Mathf.Lerp(startAlpha, 0f, p);
+            remainingTimeText.color = c;
+            yield return null;
+        }
+
+        // 完全に消えたところでテキスト自体もクリアし、
+        // 次回の表示に備えてアルファだけ元に戻しておく
+        remainingTimeText.text = "";
+        Color resetColor = remainingTimeText.color;
+        resetColor.a = startAlpha;
+        remainingTimeText.color = resetColor;
+    }
+
+    void UpdateEffectUI()
+    {
+        // Vignetteの強さはActivate/Deactivate時にRampVignette()でコルーチン制御しているので、
+        // ここでは毎フレーム上書きしない
         if (remainingTimeText != null)
         {
             remainingTimeText.text = duration > 0f
-                ? Mathf.CeilToInt(remainingTime).ToString()
+                ? Mathf.Max(remainingTime, 0f).ToString("F1")
                 : "";
         }
     }
 
     void ResetEffectUI()
     {
-        if (vignetteImage != null && vignetteImage.material != null)
+        if (vignette != null)
         {
-            vignetteImage.material.SetFloat("_Intensity", 0f);
+            vignette.intensity.value = 0f;
         }
 
         if (remainingTimeText != null)
