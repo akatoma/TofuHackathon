@@ -15,8 +15,6 @@ public class MissionManager : MonoBehaviour
     public string enemyTag = "Enemy";
     public string allyTag = "Ally"; // 生存者カウント用。味方PrefabにこのTagを付けておく
 
-    public static event System.Action OnMissionCleared;
-
     [Header("Mission UI (右上に配置)")]
     public GameObject missionPanel;
     public TMP_Text missionText;
