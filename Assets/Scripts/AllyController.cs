@@ -1,8 +1,10 @@
 using System.Collections;
 using UnityEngine;
+using TMPro;
 
 // 味方(モブ)にアタッチする。AllySpawnerで配置されるPrefabに付けておく。
-// 敵から距離をとって逃げる/怖くて震えて動けなくなる/クリア時に喜んでジャンプする、を行う。
+// 敵から距離をとって逃げる/怖くて震えて動けなくなる/クリア時に喜んでジャンプする、
+// および頭上への名前表示(MobNameAssignerから呼ばれる)を行う。
 [RequireComponent(typeof(Rigidbody))]
 public class AllyController : MonoBehaviour
 {
@@ -33,16 +35,27 @@ public class AllyController : MonoBehaviour
     public float jumpInterval = 0.6f; // ジャンプとジャンプの間隔
     public int jumpCount = 3;         // 何回ジャンプするか
 
+    [Header("Name Tag")]
+    public GameObject nameCanvas; // 頭上に配置したWorld Space Canvas
+    public TMP_Text nameText;
+
     Rigidbody rb;
     Transform nearestEnemy;
     Vector3 originalLocalPosition; // 震え演出の基準位置
     bool isCleared = false;
     bool isTrembling = false;
+    Camera mainCamera;
 
     void Awake()
     {
         rb = GetComponent<Rigidbody>();
         originalLocalPosition = transform.localPosition;
+
+        mainCamera = Camera.main;
+        if (nameCanvas != null)
+        {
+            nameCanvas.SetActive(false); // 初期は非表示。SetName()で表示するかどうか決まる
+        }
     }
 
     void OnEnable()
@@ -171,6 +184,41 @@ public class AllyController : MonoBehaviour
             rb.AddForce(Vector3.up * jumpForce, ForceMode.Impulse);
 
             yield return new WaitForSeconds(jumpInterval);
+        }
+    }
+
+    void LateUpdate()
+    {
+        if (nameCanvas == null || !nameCanvas.activeSelf)
+        {
+            return;
+        }
+
+        if (mainCamera == null)
+        {
+            mainCamera = Camera.main;
+            if (mainCamera == null)
+            {
+                return;
+            }
+        }
+
+        // 常にカメラの方を向かせる(ビルボード)
+        nameCanvas.transform.forward = mainCamera.transform.forward;
+    }
+
+    // MobNameAssignerから呼ばれる。
+    // isPlayerNamedがfalse(開発側の予備名)の場合は、画面には表示しない。
+    public void SetName(string mobName, bool isPlayerNamed)
+    {
+        if (nameText != null)
+        {
+            nameText.text = mobName;
+        }
+
+        if (nameCanvas != null)
+        {
+            nameCanvas.SetActive(isPlayerNamed);
         }
     }
 }
