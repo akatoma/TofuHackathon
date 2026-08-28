@@ -12,6 +12,8 @@ public class MissionManager : MonoBehaviour
     public string enemyTag = "Enemy";
     public string allyTag = "Ally"; // 生存者カウント用。味方PrefabにこのTagを付けておく
 
+    public static event System.Action OnMissionCleared;
+
     [Header("Mission UI (右上に配置)")]
     public GameObject missionPanel;
     public TMP_Text missionText;
@@ -100,6 +102,7 @@ public class MissionManager : MonoBehaviour
         float clearTime = Time.time - startTime;
 
         StartCoroutine(VictorySlowMotionRoutine(survivorCount, clearTime));
+        OnMissionCleared?.Invoke();
     }
 
     IEnumerator VictorySlowMotionRoutine(int survivorCount, float clearTime)
