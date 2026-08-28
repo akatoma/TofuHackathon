@@ -26,6 +26,10 @@ public class CameraController : MonoBehaviour
 
     void Update()
     {
+        if (MissionManager.isPaused)
+        {
+            return;
+        }
         pitch -= Input.GetAxis("Mouse Y") * mouseSensitivity * Time.deltaTime;
         pitch = Mathf.Clamp(pitch, minPitch, maxPitch);
 
