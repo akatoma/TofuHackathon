@@ -919,7 +919,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7d1e38b68f0a46d43b3610d3166117bb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  maxHealth: 50
+  maxHealth: 20
   healthBar: {fileID: 183157221}
   flashDuration: 0.25
   flashColor: {r: 1, g: 0, b: 0, a: 1}
@@ -931,12 +931,12 @@ MonoBehaviour:
   handHeldKnockbackMultiplier: 2
   upwardForceMultiplier: 0.05
   moveSpeed: 3
-  moveDistance: 15
-  retreatDistance: 4
+  moveDistance: 5
+  retreatDistance: 2
   retreatSpeed: 2
   target: {fileID: 1015780816}
   attackDamage: 10
-  attackCooldown: 1
+  attackCooldown: 0.3
   bulletSpeed: 30
   bulletLifetime: 20
   bulletPrefab: {fileID: 3231014794630436223, guid: f1f31ee1544b97c4bba82b9445adb6ee, type: 3}
