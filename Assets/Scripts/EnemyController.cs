@@ -4,7 +4,6 @@ using UnityEngine;
 
 //敵のメイン挙動
 //敵オブジェクトにアタッチ
-//弾丸と当たり判定は後々お引越し☆
 
 public class EnemyController : MonoBehaviour, ISnapshotable, IFreezable
 {
