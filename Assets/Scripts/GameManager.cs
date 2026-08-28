@@ -65,7 +65,6 @@ public class GameManager : MonoBehaviour, ISnapshotable
 
         EnemyController.OnEnemyDefeated += HandleEnemyDefeated;
         EnemyController.OnEnemyDefeated += HandleEnemyDefeated;
-        EnemyController.OnEnemyDefeated += HandleEnemyDefeated;
 
         // セーブのコスト加算だけはOnBeforeSave(キャプチャの直前)に繋ぐ。
         // OnSnapshotSaved(キャプチャの後)のままだと、セーブ直後に巻き戻した時に
