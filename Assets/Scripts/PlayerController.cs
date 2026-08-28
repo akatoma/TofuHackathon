@@ -7,7 +7,7 @@ using UnityEngine.SceneManagement;
 public class PlayerController : MonoBehaviour, ISnapshotable
 {
     [Header("Movement")]
-    public float moveSpeed = 7f;
+    public float moveSpeed = 2f;
 
     [Header("Look (Yaw)")]
     public float mouseSensitivity = 220f;

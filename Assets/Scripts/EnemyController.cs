@@ -39,9 +39,9 @@ public class EnemyController : MonoBehaviour, ISnapshotable, IFreezable
 
     [Header("Tracking")]
     public float moveSpeed = 3f;
-    public float moveDistance = 15f;
+    public float moveDistance = 6f;
     public float retreatDistance = 2f;
-    public float retreatSpeed = 2f;
+    public float retreatSpeed = 1f;
     public Transform target;
     bool isRetreating = false;
 
@@ -328,7 +328,6 @@ public class EnemyController : MonoBehaviour, ISnapshotable, IFreezable
             }
         }
     }
-
     void Die()
     {
         isDead = true;
@@ -360,16 +359,8 @@ public class EnemyController : MonoBehaviour, ISnapshotable, IFreezable
 
         audioBullet.Play();
         direction.Normalize();
-        EnemyBullet enemyBullet = BulletPool.Instance.Spawn(bulletPrefab);
 
-        if (speedScale < 1f)
-        {
-            FreezableRigidbody freezable = enemyBullet.GetComponent<FreezableRigidbody>();
-            if (freezable != null)
-            {
-                freezable.InitializeFrozen(speedScale);
-            }
-        }
+        EnemyBullet enemyBullet = BulletPool.Instance.Spawn(bulletPrefab);
         enemyBullet.Fire(
             transform.position + direction * 0.8f,
             Quaternion.LookRotation(direction, Vector3.up) * Quaternion.Euler(90f, 0f, 0f),
