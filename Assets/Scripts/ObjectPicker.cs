@@ -11,6 +11,9 @@ public class ObjectPicker : MonoBehaviour
     public int throwButton = 0;             // 0: 左クリック（投げ）
     public float throwForce = 15f;          // 投擲力
 
+    [Header("Camera Clipping Prevention")]
+    public float minHoldDistance = 1.2f;    // カメラからの最低距離（めり込み防止）
+
     [Header("Centrifugal Force (Swing Auto-Extend)")]
     public float maxExtendDistance = 2.5f;  // 視点を最速で振った時に伸びる最大距離
     public float rotationSpeedThreshold = 100f; // 伸び始めに必要な最低旋回速度(度/秒)
@@ -94,25 +97,59 @@ public class ObjectPicker : MonoBehaviour
         // スムーズに補間
         currentExtend = Mathf.Lerp(currentExtend, targetExtend, Time.deltaTime * returnSmoothness);
 
-        // カメラの前方ベクトル方向に遠心力分だけ位置を伸ばす
-        Vector3 extendVector = camTransform.forward * currentExtend;
+        // 基本位置の算出（holdPositionの位置と、カメラ前方の最低距離保証位置のうち遠い方）
+        Vector3 basePos = holdPosition.position;
+        Vector3 minCamPos = camTransform.position + camTransform.forward * minHoldDistance;
 
-        Vector3 newPos = holdPosition.position + extendVector;
+        // holdPositionがカメラに近すぎる場合は押し出す
+        if (Vector3.Distance(camTransform.position, basePos) < minHoldDistance)
+        {
+            basePos = minCamPos;
+        }
+
+        // カメラの前方ベクトル方向に遠心力分だけ位置を伸ばす
+        Vector3 targetPos = basePos + camTransform.forward * currentExtend;
+
+        // カメラとターゲット位置の間に壁などがある場合の補正
+        Vector3 finalPos = PreventCameraClipping(camTransform.position, targetPos);
 
         // 手持ちオブジェクトの1フレームあたりの移動速度(m/s)を算出
         if (Time.deltaTime > 0f)
         {
-            HeldObjectVelocity = (newPos - lastHoldPosition) / Time.deltaTime;
+            HeldObjectVelocity = (finalPos - lastHoldPosition) / Time.deltaTime;
         }
-        lastHoldPosition = newPos;
+        lastHoldPosition = finalPos;
 
-        heldObject.transform.position = newPos;
+        heldObject.transform.position = finalPos;
         heldObject.transform.rotation = holdPosition.rotation;
+    }
+
+    // カメラと持ち手位置の間の障害物めり込み防止
+    Vector3 PreventCameraClipping(Vector3 camPos, Vector3 targetPos)
+    {
+        Vector3 dir = targetPos - camPos;
+        float dist = dir.magnitude;
+
+        // 手持ち中のオブジェクト自身のコライダーを一時的に無効化してRaycastの誤検知を防ぐ
+        Collider heldCol = heldObject != null ? heldObject.GetComponent<Collider>() : null;
+        if (heldCol != null) heldCol.enabled = false;
+
+        RaycastHit hit;
+        if (Physics.Raycast(camPos, dir.normalized, out hit, dist, raycastLayer))
+        {
+            // 壁などにヒットした場合は、壁の手前に配置する
+            targetPos = hit.point - dir.normalized * 0.2f;
+        }
+
+        if (heldCol != null) heldCol.enabled = true;
+
+        return targetPos;
     }
 
     void TryPickObject()
     {
-        Ray ray = new Ray(transform.position, transform.forward);
+        Transform camTransform = Camera.main != null ? Camera.main.transform : transform;
+        Ray ray = new Ray(camTransform.position, camTransform.forward);
         RaycastHit hit;
 
         if (Physics.Raycast(ray, out hit, pickRange, raycastLayer))
@@ -138,9 +175,6 @@ public class ObjectPicker : MonoBehaviour
         Transform camTransform = Camera.main != null ? Camera.main.transform : transform;
         lastRotation = camTransform.rotation;
         lastHoldPosition = holdPosition.position;
-
-        heldObject.transform.position = holdPosition.position;
-        heldObject.transform.rotation = holdPosition.rotation;
 
         OnObjectPicked?.Invoke(); // イベント通知
     }
@@ -183,6 +217,6 @@ public class ObjectPicker : MonoBehaviour
             rb.AddForce(throwDirection * throwForce, ForceMode.Impulse);
         }
 
-        OnObjectThrown?.Invoke(); // イベント通知（ゲージ+5処理）
+        OnObjectThrown?.Invoke(); // イベント通知
     }
 }

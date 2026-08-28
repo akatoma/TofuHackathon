@@ -8,6 +8,7 @@ TagManager:
   - Pickable
   - Enemy
   - Ally
+  - Wall
   layers:
   - Default
   - TransparentFX
