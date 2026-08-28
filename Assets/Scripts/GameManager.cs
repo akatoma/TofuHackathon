@@ -152,11 +152,6 @@ public class GameManager : MonoBehaviour, ISnapshotable
         Debug.Log("[GameManager] Enemy defeated - gauge fully recovered.");
     }
 
-    void HandleMissionCleared()
-    {
-        isMissionCleared = true;
-    }
-
     void Update()
     {
         if (MissionManager.isPaused)
@@ -206,7 +201,7 @@ public class GameManager : MonoBehaviour, ISnapshotable
 
     void Increase(float amount)
     {
-        if (isGameOver || isMissionCleared) return;
+        if (isGameOver) return;
 
         currentValue = Mathf.Min(currentValue + amount, maxValue);
         gaugeSlider.value = currentValue;
