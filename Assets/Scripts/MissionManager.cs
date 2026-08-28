@@ -120,6 +120,7 @@ public class MissionManager : MonoBehaviour
         float clearTime = Time.time - startTime;
 
         StartCoroutine(VictorySlowMotionRoutine(survivorCount, clearTime));
+        OnMissionCleared?.Invoke();
     }
 
     IEnumerator VictorySlowMotionRoutine(int survivorCount, float clearTime)
