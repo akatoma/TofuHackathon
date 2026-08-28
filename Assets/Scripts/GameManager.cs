@@ -5,10 +5,12 @@ using UnityEngine.UI;
 using UnityEngine.Events;
 using UnityEngine.SceneManagement;
 
-public class GameManager : MonoBehaviour, ISnapshotable
+
+public class GameManager : MonoBehaviour
 {
     [Header("References")]
     public PlayerController playerController;
+    public ObjectPicker objectPicker;
     public Slider healthSlider;
     public Slider gaugeSlider;
 
@@ -16,8 +18,14 @@ public class GameManager : MonoBehaviour, ISnapshotable
     public float maxValue = 100f;
     float currentValue = 0f;
     public float fillRate = 5f; // セーブがある間、1秒あたりに増える量
-    public float increaseOnSave = 5f; // Qを押すたびに追加で増える量
-    public float increaseOnLoad = 5f; // Rを押すたびに追加で増える量
+    public float increaseOnSave = 5f; // セーブ(Q)1回あたりの増加量
+    public float increaseOnLoad = 5f; // 巻き戻し(R)1回あたりの増加量
+
+    [Header("Object Pick Gauge Settings")]
+    public float increasePerSecondWhileHolding = 2f; // 保持中の1秒あたりの増加量
+    public float increaseOnThrow = 5f;               // 投擲(左クリック)時の増加量
+    private Coroutine holdGaugeCoroutine;
+
 
     [Header("Bullets Hit Effect")]
     public GameObject panel;
@@ -33,12 +41,8 @@ public class GameManager : MonoBehaviour, ISnapshotable
     public float darkenFadeDuration = 0.5f;
     Coroutine fadeCoroutine;
 
-    [Header("Game Over")]
-    public UnityEvent onGameOver; // ゲームオーバー時の処理をInspectorで割り当てる
-                                  // (例: GameOverパネルの表示、シーン遷移など)
     bool isGameOver = false;
 
-    // セーブ/巻き戻しで保存したい情報
     class State
     {
         public float gaugeValue;
@@ -55,19 +59,22 @@ public class GameManager : MonoBehaviour, ISnapshotable
         playerController.OnHealthChanged += HandleHealthChanged;
         HandleHealthChanged(playerController.currentHealth, playerController.maxHealth);
 
-        EnemyController.OnEnemyDefeated += HandleEnemyDefeated;
-
-        // セーブのコスト加算だけはOnBeforeSave(キャプチャの直前)に繋ぐ。
-        // OnSnapshotSaved(キャプチャの後)のままだと、セーブ直後に巻き戻した時に
-        // このコストがなかったことになってしまうため
         SnapshotManager.OnBeforeSave += HandleBeforeSave;
         SnapshotManager.OnSnapshotSaved += HandleSaved;
         SnapshotManager.OnSnapshotLoaded += HandleLoaded;
         SnapshotManager.OnSnapshotCleared += HandleCleared;
 
+        if (objectPicker != null)
+        {
+            objectPicker.OnObjectPicked += HandleObjectPicked;
+            objectPicker.OnObjectDropped += HandleObjectDropped;
+            objectPicker.OnObjectThrown += HandleObjectThrown;
+        }
+
         // 起動時、既にセーブがある状態なら暗転も即座に反映しておく
         bool currentlySaved = SnapshotManager.Instance != null && SnapshotManager.Instance.HasSnapshot;
         SetDarkenImmediate(currentlySaved ? darkenTargetAlpha : 0f);
+
     }
     void OnDisable()
     {
@@ -79,22 +86,33 @@ public class GameManager : MonoBehaviour, ISnapshotable
         SnapshotManager.OnSnapshotSaved -= HandleSaved;
         SnapshotManager.OnSnapshotLoaded -= HandleLoaded;
         SnapshotManager.OnSnapshotCleared -= HandleCleared;
+
+        // 追記: ObjectPickerのイベント購読解除
+        if (objectPicker != null)
+        {
+            objectPicker.OnObjectPicked -= HandleObjectPicked;
+            objectPicker.OnObjectDropped -= HandleObjectDropped;
+            objectPicker.OnObjectThrown -= HandleObjectThrown;
+        }
     }
 
     //UI
+    void HandleHealthChanged(int current, int max)
+    {
+        healthSlider.maxValue = max;
+        healthSlider.value = current;
+    }
     void HandleBeforeSave()
     {
         // キャプチャされる前に加算するので、この後に巻き戻してもコストは消えない
         Increase(increaseOnSave);
     }
-
     void HandleSaved()
     {
-        // こちらは見た目の演出だけなので、キャプチャの前後どちらでも問題ない
+        Increase(increaseOnSave);
         SpawnRipple();
         FadeDarken(darkenTargetAlpha);
     }
-
     void HandleLoaded()
     {
         Increase(increaseOnLoad);
@@ -103,7 +121,6 @@ public class GameManager : MonoBehaviour, ISnapshotable
     {
         FadeDarken(0f);
     }
-
 
     void HandleEnemyDefeated(GameObject defeated)
     {
@@ -125,12 +142,39 @@ public class GameManager : MonoBehaviour, ISnapshotable
         }
     }
 
-    //UI
-    void HandleHealthChanged(int current, int max)
+    // オブジェクト保持・離す・投擲処理
+    void HandleObjectPicked()
     {
-        healthSlider.maxValue = max;
-        healthSlider.value = current;
+        if (holdGaugeCoroutine != null)
+        {
+            StopCoroutine(holdGaugeCoroutine);
+        }
+        holdGaugeCoroutine = StartCoroutine(HoldGaugeRoutine());
     }
+    void HandleObjectDropped()
+    {
+        if (holdGaugeCoroutine != null)
+        {
+            StopCoroutine(holdGaugeCoroutine);
+            holdGaugeCoroutine = null;
+        }
+    }
+    void HandleObjectThrown()
+    {
+        HandleObjectDropped();
+        Increase(increaseOnThrow); // 投擲時に5ゲージ増加
+    }
+
+    // 1秒ごとに2ずつゲージを増加させるコルーチン
+    IEnumerator HoldGaugeRoutine()
+    {
+        while (true)
+        {
+            yield return new WaitForSeconds(1f);
+            Increase(increasePerSecondWhileHolding);
+        }
+    }
+
     void Increase(float amount)
     {
         if (isGameOver) return;
@@ -169,7 +213,7 @@ public class GameManager : MonoBehaviour, ISnapshotable
         panelRoutine = null;
     }
 
-    //波紋などの演出
+    //波紋
     void SpawnRipple()
     {
         if (ripplePrefab == null || player == null)
