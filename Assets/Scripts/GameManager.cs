@@ -154,7 +154,11 @@ public class GameManager : MonoBehaviour, ISnapshotable
 
     void Update()
     {
-        // セーブがある間だけ、一定速度でゲージが増え続ける
+        if (MissionManager.isPaused)
+        {
+            return;
+        }
+        // 一定速度でゲージが増え続ける
         bool hasSave = SnapshotManager.Instance != null && SnapshotManager.Instance.HasSnapshot;
         if (hasSave)
         {

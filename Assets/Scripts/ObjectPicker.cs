@@ -11,6 +11,13 @@ public class ObjectPicker : MonoBehaviour
     public int throwButton = 0;             // 0: 左クリック（投げ）
     public float throwForce = 15f;          // 投擲力
 
+    [Header("Layer Settings")]
+    public string heldObjectLayerName = "HeldObject"; // 持ち手時に適用するレイヤー名
+    private int originalLayer;                        // 持ち上げる前の元レイヤーを記憶
+
+    [Header("Camera Clipping Prevention")]
+    public float minHoldDistance = 1.2f;    // カメラからの最低距離（めり込み防止）
+
     [Header("Centrifugal Force (Swing Auto-Extend)")]
     public float maxExtendDistance = 2.5f;  // 視点を最速で振った時に伸びる最大距離
     public float rotationSpeedThreshold = 100f; // 伸び始めに必要な最低旋回速度(度/秒)
@@ -31,12 +38,10 @@ public class ObjectPicker : MonoBehaviour
     private GameObject heldObject = null;
     private Rigidbody heldRigidbody = null;
 
-    // 手持ち状態フラグ（外部参照用）
     public bool IsHoldingObject => heldObject != null;
 
-    // 手持ち中の移動速度計算用
     private Vector3 lastHoldPosition;
-    public Vector3 HeldObjectVelocity { get; private set; } // 手持ちオブジェクトの移動速度
+    public Vector3 HeldObjectVelocity { get; private set; }
 
     void Start()
     {
@@ -46,7 +51,6 @@ public class ObjectPicker : MonoBehaviour
 
     void Update()
     {
-        // Fキーで持ち上げる・離す
         if (Input.GetKeyDown(pickKey))
         {
             if (heldObject == null)
@@ -58,20 +62,17 @@ public class ObjectPicker : MonoBehaviour
                 DropObject();
             }
         }
-        // 保持中に左クリックで投げる
         else if (heldObject != null && Input.GetMouseButtonDown(throwButton))
         {
             ThrowObject();
         }
 
-        // 保持中の遠心力計算と位置同期
         if (heldObject != null && holdPosition != null)
         {
             UpdateCentrifugalOffset();
         }
         else
         {
-            // 保持していない時もカメラ回転の差分を記録しておく
             Transform camTransform = Camera.main != null ? Camera.main.transform : transform;
             lastRotation = camTransform.rotation;
             HeldObjectVelocity = Vector3.zero;
@@ -82,37 +83,59 @@ public class ObjectPicker : MonoBehaviour
     {
         Transform camTransform = Camera.main != null ? Camera.main.transform : transform;
 
-        // 1フレームあたりの回転角度の差分（角速度: deg/sec）を算出
         float angleDiff = Quaternion.Angle(camTransform.rotation, lastRotation);
         float rotationSpeed = Time.deltaTime > 0f ? angleDiff / Time.deltaTime : 0f;
         lastRotation = camTransform.rotation;
 
-        // 旋回速度に応じて目標の伸び量を計算
         float speedFactor = Mathf.InverseLerp(rotationSpeedThreshold, maxRotationSpeed, rotationSpeed);
         float targetExtend = speedFactor * maxExtendDistance;
 
-        // スムーズに補間
         currentExtend = Mathf.Lerp(currentExtend, targetExtend, Time.deltaTime * returnSmoothness);
 
-        // カメラの前方ベクトル方向に遠心力分だけ位置を伸ばす
-        Vector3 extendVector = camTransform.forward * currentExtend;
+        Vector3 basePos = holdPosition.position;
+        Vector3 minCamPos = camTransform.position + camTransform.forward * minHoldDistance;
 
-        Vector3 newPos = holdPosition.position + extendVector;
+        if (Vector3.Distance(camTransform.position, basePos) < minHoldDistance)
+        {
+            basePos = minCamPos;
+        }
 
-        // 手持ちオブジェクトの1フレームあたりの移動速度(m/s)を算出
+        Vector3 targetPos = basePos + camTransform.forward * currentExtend;
+        Vector3 finalPos = PreventCameraClipping(camTransform.position, targetPos);
+
         if (Time.deltaTime > 0f)
         {
-            HeldObjectVelocity = (newPos - lastHoldPosition) / Time.deltaTime;
+            HeldObjectVelocity = (finalPos - lastHoldPosition) / Time.deltaTime;
         }
-        lastHoldPosition = newPos;
+        lastHoldPosition = finalPos;
 
-        heldObject.transform.position = newPos;
+        heldObject.transform.position = finalPos;
         heldObject.transform.rotation = holdPosition.rotation;
+    }
+
+    Vector3 PreventCameraClipping(Vector3 camPos, Vector3 targetPos)
+    {
+        Vector3 dir = targetPos - camPos;
+        float dist = dir.magnitude;
+
+        Collider heldCol = heldObject != null ? heldObject.GetComponent<Collider>() : null;
+        if (heldCol != null) heldCol.enabled = false;
+
+        RaycastHit hit;
+        if (Physics.Raycast(camPos, dir.normalized, out hit, dist, raycastLayer))
+        {
+            targetPos = hit.point - dir.normalized * 0.2f;
+        }
+
+        if (heldCol != null) heldCol.enabled = true;
+
+        return targetPos;
     }
 
     void TryPickObject()
     {
-        Ray ray = new Ray(transform.position, transform.forward);
+        Transform camTransform = Camera.main != null ? Camera.main.transform : transform;
+        Ray ray = new Ray(camTransform.position, camTransform.forward);
         RaycastHit hit;
 
         if (Physics.Raycast(ray, out hit, pickRange, raycastLayer))
@@ -129,6 +152,10 @@ public class ObjectPicker : MonoBehaviour
         heldObject = obj;
         heldRigidbody = obj.GetComponent<Rigidbody>();
 
+        // 元のレイヤーを保存して HeldObject レイヤーへ変更（子オブジェクト含む）
+        originalLayer = obj.layer;
+        SetLayerRecursively(heldObject, LayerMask.NameToLayer(heldObjectLayerName));
+
         if (heldRigidbody != null)
         {
             heldRigidbody.isKinematic = true;
@@ -139,15 +166,15 @@ public class ObjectPicker : MonoBehaviour
         lastRotation = camTransform.rotation;
         lastHoldPosition = holdPosition.position;
 
-        heldObject.transform.position = holdPosition.position;
-        heldObject.transform.rotation = holdPosition.rotation;
-
-        OnObjectPicked?.Invoke(); // イベント通知
+        OnObjectPicked?.Invoke();
     }
 
     void DropObject()
     {
         if (heldObject == null) return;
+
+        // レイヤーを元に戻す
+        SetLayerRecursively(heldObject, originalLayer);
 
         if (heldRigidbody != null)
         {
@@ -159,7 +186,7 @@ public class ObjectPicker : MonoBehaviour
         currentExtend = 0f;
         HeldObjectVelocity = Vector3.zero;
 
-        OnObjectDropped?.Invoke(); // イベント通知
+        OnObjectDropped?.Invoke();
     }
 
     void ThrowObject()
@@ -168,6 +195,9 @@ public class ObjectPicker : MonoBehaviour
 
         GameObject thrownObj = heldObject;
         Rigidbody rb = heldRigidbody;
+
+        // レイヤーを元に戻す
+        SetLayerRecursively(thrownObj, originalLayer);
 
         heldObject = null;
         heldRigidbody = null;
@@ -178,11 +208,21 @@ public class ObjectPicker : MonoBehaviour
         {
             rb.isKinematic = false;
 
-            // メインカメラの視線方向、無ければ自身の前方に飛ばす
             Vector3 throwDirection = Camera.main != null ? Camera.main.transform.forward : transform.forward;
             rb.AddForce(throwDirection * throwForce, ForceMode.Impulse);
         }
 
-        OnObjectThrown?.Invoke(); // イベント通知（ゲージ+5処理）
+        OnObjectThrown?.Invoke();
+    }
+
+    // 子オブジェクト含め再帰的にレイヤーを変更するヘルパー関数
+    void SetLayerRecursively(GameObject obj, int newLayer)
+    {
+        if (obj == null) return;
+        obj.layer = newLayer;
+        foreach (Transform child in obj.transform)
+        {
+            SetLayerRecursively(child.gameObject, newLayer);
+        }
     }
 }

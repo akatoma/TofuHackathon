@@ -101,6 +101,11 @@ public class SnapshotManager : MonoBehaviour
 
     void Update()
     {
+        if (MissionManager.isPaused)
+        {
+            return;
+        }
+        
         if (Input.GetKeyDown(saveKey))
         {
             // 常に上書き保存する(トグル/削除はしない)

@@ -38,11 +38,22 @@ public class EnemyController : MonoBehaviour, ISnapshotable, IFreezable
 
     [Header("Tracking")]
     public float moveSpeed = 3f;
-    public float moveDistance = 6f;
-    public float retreatDistance = 2f;
-    public float retreatSpeed = 1f;
+    public float moveDistance = 15f;
+    public float retreatDistance = 5f;
+    public float retreatSpeed = 2f;
     public Transform target;
     bool isRetreating = false;
+
+    [Header("Obstacle Avoidance Settings")]
+    public List<string> obstacleTags = new List<string> { "Obstacle", "Pickable", "Untagged" }; // 回避対象のタグ一覧
+    public float avoidanceRayDistance = 3f;    // 前方回避Rayの距離
+    public float fanAngle = 60f;               // 前方扇状Rayの展開角度
+    public int rayCount = 5;                   // 前方扇状Rayの本数
+    public LayerMask avoidanceLayer = ~0;       // 前方回避対象のレイヤー
+
+    // 後退中の背後衝突状態
+    private bool isTouchingWallBehind = false;
+    private Vector3 avoidSideDirection = Vector3.right;
 
     [Header("Attack")]
     public int attackDamage = 40;
@@ -155,15 +166,16 @@ public class EnemyController : MonoBehaviour, ISnapshotable, IFreezable
 
     void FixedUpdate()
     {
-        if (speedScale <= 0f)
+        if (speedScale <= 0f || target == null)
         {
-            return; // 完全に停止しきっている
+            return; // 完全に停止しきっている、またはターゲットがない
         }
 
         Vector3 toTarget = target.position - enemyRb.position;
         toTarget.y = 0f;
         float distance = toTarget.magnitude;
 
+        // 状態更新: 後退判定
         if (distance <= retreatDistance)
         {
             isRetreating = true;
@@ -173,21 +185,38 @@ public class EnemyController : MonoBehaviour, ISnapshotable, IFreezable
             isRetreating = false;
         }
 
+        Vector3 moveDir = Vector3.zero;
+
         if (isRetreating)
         {
-            // 後退
-            Vector3 retreatDirection = -toTarget.normalized;
-            enemyRb.MovePosition(enemyRb.position + retreatDirection * retreatSpeed * speedScale * Time.fixedDeltaTime);
+            // 後ろにぶつかっていれば横にそれる、ぶつかっていなければそのまま後退
+            if (isTouchingWallBehind)
+            {
+                moveDir = avoidSideDirection * retreatSpeed;
+            }
+            else
+            {
+                moveDir = -toTarget.normalized * retreatSpeed;
+            }
         }
         else if (distance >= moveDistance)
         {
-            // 接近
-            Vector3 direction = toTarget / distance;
-            enemyRb.MovePosition(enemyRb.position + direction * moveSpeed * speedScale * Time.fixedDeltaTime);
+            // 接近ベクトル（前方扇状Rayによる障害物回避付き）
+            Vector3 forwardDir = toTarget.normalized;
+            forwardDir = AvoidObstaclesForward(forwardDir);
+
+            moveDir = forwardDir * moveSpeed;
         }
-        else 
+
+        // 移動の適用
+        if (moveDir != Vector3.zero)
         {
-            // 攻撃: クールダウンの経過もspeedScaleに合わせて遅くする
+            enemyRb.MovePosition(enemyRb.position + moveDir * speedScale * Time.fixedDeltaTime);
+        }
+
+        // 攻撃処理（下がりながら・停止しながらでも射撃）
+        if (distance <= moveDistance)
+        {
             attackTimer -= Time.fixedDeltaTime * speedScale;
             if (attackTimer <= 0f)
             {
@@ -195,8 +224,90 @@ public class EnemyController : MonoBehaviour, ISnapshotable, IFreezable
                 Attack();
             }
         }
-        
-        enemyRb.MoveRotation(Quaternion.LookRotation(toTarget.normalized, Vector3.up));
+
+        // 常にターゲットの方を向く
+        if (toTarget.sqrMagnitude > 0.001f)
+        {
+            enemyRb.MoveRotation(Quaternion.LookRotation(toTarget.normalized, Vector3.up));
+        }
+    }
+
+    // 前方扇状Rayキャストによる視覚的避ける処理
+    Vector3 AvoidObstaclesForward(Vector3 currentDirection)
+    {
+        Vector3 avoidanceVector = Vector3.zero;
+        float startAngle = -fanAngle * 0.5f;
+        float angleStep = rayCount > 1 ? fanAngle / (rayCount - 1) : 0f;
+
+        for (int i = 0; i < rayCount; i++)
+        {
+            float currentAngle = startAngle + (angleStep * i);
+            Vector3 rayDir = Quaternion.Euler(0, currentAngle, 0) * transform.forward;
+            RaycastHit hit;
+
+            if (Physics.Raycast(transform.position, rayDir, out hit, avoidanceRayDistance, avoidanceLayer))
+            {
+                if (IsMatchingObstacleTag(hit.collider.gameObject))
+                {
+                    float weight = 1f - (hit.distance / avoidanceRayDistance);
+                    Vector3 avoidDir = Vector3.Cross(Vector3.up, rayDir);
+
+                    if (currentAngle < 0) avoidDir = -avoidDir;
+
+                    avoidanceVector += avoidDir * weight;
+                }
+            }
+        }
+
+        return (currentDirection + avoidanceVector).normalized;
+    }
+
+    // 後退時に「実際に背中が何かにぶつかった」ことを検知する物理判定
+    private void OnCollisionStay(Collision collision)
+    {
+        if (isRetreating && IsMatchingObstacleTag(collision.gameObject))
+        {
+            if (collision.contactCount > 0)
+            {
+                ContactPoint contact = collision.contacts[0];
+
+                // 衝突面の法線ベクトルが「敵の前方」を向いている＝背中側からの衝突かを判定
+                if (Vector3.Dot(contact.normal, transform.forward) > 0.2f)
+                {
+                    isTouchingWallBehind = true;
+
+                    // 壁の法線に対して垂直な「横滑り方向」を決定
+                    Vector3 sideDir = Vector3.Cross(contact.normal, Vector3.up);
+
+                    // ターゲットの位置関係に合わせて自然な逃げ方向を選択
+                    if (Vector3.Dot(sideDir, transform.right) < 0)
+                    {
+                        sideDir = -sideDir;
+                    }
+
+                    avoidSideDirection = sideDir.normalized;
+                }
+            }
+        }
+    }
+
+    private void OnCollisionExit(Collision collision)
+    {
+        if (IsMatchingObstacleTag(collision.gameObject))
+        {
+            isTouchingWallBehind = false;
+        }
+    }
+
+    // 回避対象タグのチェック
+    bool IsMatchingObstacleTag(GameObject obj)
+    {
+        foreach (string tag in obstacleTags)
+        {
+           // 未登録タグでもエラーにならず false を返す
+           if (obj.tag == tag) return true;
+        }
+        return false;
     }
 
     // Pickableオブジェクトとの衝突判定処理（ダメージ＋後ろ方向ノックバック）
@@ -273,7 +384,7 @@ public class EnemyController : MonoBehaviour, ISnapshotable, IFreezable
         currentHealth -= amount;
         Debug.Log($"{name} took {amount} damage. Remaining: {currentHealth}");
 
-        audioHand.Play();
+        if (audioHand != null) audioHand.Play();
 
         // ダメージ時の赤色点滅処理を呼び出し
         FlashRed();
@@ -327,6 +438,7 @@ public class EnemyController : MonoBehaviour, ISnapshotable, IFreezable
             }
         }
     }
+
     void Die()
     {
         isDead = true;
@@ -356,10 +468,18 @@ public class EnemyController : MonoBehaviour, ISnapshotable, IFreezable
             return;
         }
 
-        audioBullet.Play();
+        if (audioBullet != null) audioBullet.Play();
         direction.Normalize();
-
         EnemyBullet enemyBullet = BulletPool.Instance.Spawn(bulletPrefab);
+
+        if (speedScale < 1f)
+        {
+            FreezableRigidbody freezable = enemyBullet.GetComponent<FreezableRigidbody>();
+            if (freezable != null)
+            {
+                freezable.InitializeFrozen(speedScale);
+            }
+        }
         enemyBullet.Fire(
             transform.position + direction * 0.8f + Vector3.up * 0.5f, // 少し前方かつ上方に発射位置を調整
             Quaternion.LookRotation(direction, Vector3.up) * Quaternion.Euler(90f, 0f, 0f),
@@ -454,6 +574,21 @@ public class EnemyController : MonoBehaviour, ISnapshotable, IFreezable
         {
             healthBar.SetHealth(currentHealth, maxHealth);
             healthBar.SetVisible(hasBeenHit);
+        }
+    }
+
+    // デバッグ用: Sceneビューで前方扇状Rayを可視化
+    private void OnDrawGizmosSelected()
+    {
+        Gizmos.color = Color.yellow;
+        float startAngle = -fanAngle * 0.5f;
+        float angleStep = rayCount > 1 ? fanAngle / (rayCount - 1) : 0f;
+
+        for (int i = 0; i < rayCount; i++)
+        {
+            float currentAngle = startAngle + (angleStep * i);
+            Vector3 rayDir = Quaternion.Euler(0, currentAngle, 0) * transform.forward;
+            Gizmos.DrawRay(transform.position, rayDir * avoidanceRayDistance);
         }
     }
 }

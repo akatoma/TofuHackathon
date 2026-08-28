@@ -399,8 +399,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 43763bf846a80f141b28ac95016503ec, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  titleSceneName: Title
-  gameSceneName: FuruMain
+  titleSceneName: StartScene
+  gameSceneName: Main
 --- !u!1 &1548981664
 GameObject:
   m_ObjectHideFlags: 0
