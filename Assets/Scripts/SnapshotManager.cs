@@ -30,6 +30,12 @@ public class SnapshotManager : MonoBehaviour
     public KeyCode loadKey = KeyCode.R; // 巻き戻し
     public KeyCode stopKey = KeyCode.E; //時間停止
 
+    [Header("Audio")]
+    public AudioSource audioSave;
+    public AudioSource audioRetry;
+    public AudioSource audioTimeStop;
+
+
     [Header("Time Stop")]
     public float duration = 3f; // 効果時間(秒)。0以下にすると、もう一度押すまで止まったままになる
     [Range(0f, 1f)]
@@ -82,10 +88,13 @@ public class SnapshotManager : MonoBehaviour
         {
             // 常に上書き保存する(トグル/削除はしない)
             SaveSnapshot();
+            audioSave.Play();
+            
         }
         else if (Input.GetKeyDown(loadKey))
         {
             LoadSnapshot();
+            audioRetry.Play();
         }
 
         if (Input.GetKeyDown(stopKey))
@@ -96,7 +105,7 @@ public class SnapshotManager : MonoBehaviour
             }
             else
             {
-                TryActivate();
+                Activate();
             }
         }
 
@@ -174,8 +183,8 @@ public class SnapshotManager : MonoBehaviour
         OnSnapshotCleared?.Invoke();
     }
 
-    //時間停止
-    void TryActivate()
+    //時間停止  
+    void Activate()
     {
         if (!hasSnapshot)
         {
@@ -183,10 +192,10 @@ public class SnapshotManager : MonoBehaviour
             return;
         }
 
-        Activate();
-    }
-    void Activate()
-    {
+        audioTimeStop.time = 0f;
+        audioTimeStop.pitch = 1.0f;
+        audioTimeStop.Play();
+
         isActive = true;
         remainingTime = duration;
 
@@ -213,6 +222,10 @@ public class SnapshotManager : MonoBehaviour
         {
             return;
         }
+
+        audioTimeStop.time = audioTimeStop.clip.length - 0.01f;
+        audioTimeStop.pitch = -1.0f;
+        audioTimeStop.Play();
 
         foreach (IFreezable target in frozenTargets)
         {
