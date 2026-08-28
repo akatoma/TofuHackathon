@@ -117,6 +117,10 @@ public class PlayerController : MonoBehaviour, ISnapshotable
 
     void Update()
     {
+        if (MissionManager.isPaused)
+        {
+            return;
+        }
         float h = Input.GetAxisRaw("Horizontal");
         float v = Input.GetAxisRaw("Vertical");
         inputDirection = new Vector3(h, 0f, v);

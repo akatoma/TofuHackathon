@@ -5,8 +5,8 @@ using UnityEngine.SceneManagement;
 public class GameOverController : MonoBehaviour
 {
     [Header("Scene Names")]
-    public string titleSceneName = "Title"; // Build Settingsに追加しておくこと
-    public string gameSceneName = "main";   // Build Settingsに追加しておくこと
+    public string titleSceneName = "StartScene"; // Build Settingsに追加しておくこと
+    public string gameSceneName = "Main";   // Build Settingsに追加しておくこと
 
     void Awake()
     {
