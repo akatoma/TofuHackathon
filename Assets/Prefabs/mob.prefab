@@ -120,7 +120,7 @@ GameObject:
   - component: {fileID: 8857857408970297637}
   m_Layer: 0
   m_Name: mob
-  m_TagString: Untagged
+  m_TagString: Ally
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
