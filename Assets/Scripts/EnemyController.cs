@@ -17,6 +17,10 @@ public class EnemyController : MonoBehaviour, ISnapshotable, IFreezable
     int currentHealth;
     bool isDead = false;
 
+    [Header("Invincibility")]
+    public float invincibilityDuration = 0.2f; // ダメージ後の無敵時間（秒）
+    private bool isInvincible = false;         // 現在無敵状態かどうか
+
     [Header("Health Bar")]
     public EnemyHealthBar healthBar; // 頭上に配置したWorld Space Canvasをアサイン
     bool hasBeenHit = false;
@@ -32,6 +36,8 @@ public class EnemyController : MonoBehaviour, ISnapshotable, IFreezable
     public ObjectPicker objectPicker; // プレイヤーのObjectPickerをアサイン
     public string pickableTag = "Pickable";
     public float minImpactVelocity = 3f;           // ダメージ・ノックバックを発生させる最低衝突速度
+    public float baseDamageMultiplier = 1.0f;      // 基本のダメージ倍率
+    public float heldDamageMultiplier = 0.3f;      // 手持ち状態で振り回してぶつけた時のダメージ倍率
     public float damageMultiplier = 2f;            // 速度に対するダメージ倍率
     public float knockbackMultiplier = 1.0f;       // 通常のノックバック力倍率
     public float handHeldKnockbackMultiplier = 2.0f; // 手持ち時の追加ノックバック倍率（例: 2.0なら手持ちで吹き飛ばし2倍）
@@ -313,7 +319,7 @@ public class EnemyController : MonoBehaviour, ISnapshotable, IFreezable
     // Pickableオブジェクトとの衝突判定処理（ダメージ＋後ろ方向ノックバック）
     private void OnCollisionEnter(Collision collision)
     {
-        if (isDead) return;
+        if (isDead || isInvincible) return; // 無敵時間中は判定を行わない
 
         if (collision.gameObject.CompareTag(pickableTag))
         {
@@ -340,8 +346,15 @@ public class EnemyController : MonoBehaviour, ISnapshotable, IFreezable
             // 一定以上のスピードでぶつかった場合のみダメージ＆ノックバック
             if (impactSpeed >= minImpactVelocity)
             {
-                // 1. ダメージ処理
-                int calculatedDamage = Mathf.RoundToInt(impactSpeed * damageMultiplier);
+                // 手持ち状態に応じたダメージ倍率の算出
+                float currentDamageMultiplier = baseDamageMultiplier;
+                if (isHeldByPlayer)
+                {
+                    currentDamageMultiplier *= heldDamageMultiplier;
+                }
+
+                // 1. ダメージ処理（速度 × 設定倍率 × 手持ち/投げ倍率）
+                int calculatedDamage = Mathf.RoundToInt(impactSpeed * damageMultiplier * currentDamageMultiplier);
                 TakeDamage(calculatedDamage);
 
                 // 2. ノックバック処理（手持ち状態なら倍率を掛ける）
@@ -376,7 +389,8 @@ public class EnemyController : MonoBehaviour, ISnapshotable, IFreezable
 
     public void TakeDamage(int amount)
     {
-        if (isDead)
+        // 死亡時または無敵時間中の場合はダメージを受けない
+        if (isDead || isInvincible)
         {
             return;
         }
@@ -386,8 +400,8 @@ public class EnemyController : MonoBehaviour, ISnapshotable, IFreezable
 
         if (audioHand != null) audioHand.Play();
 
-        // ダメージ時の赤色点滅処理を呼び出し
-        FlashRed();
+        // ダメージ時の赤色点滅 & 無敵タイマー処理を呼び出し
+        StartCoroutine(InvincibilityRoutine());
 
         if (!hasBeenHit)
         {
@@ -402,17 +416,11 @@ public class EnemyController : MonoBehaviour, ISnapshotable, IFreezable
         }
     }
 
-    void FlashRed()
+    // 無敵時間および赤色点滅の管理コルーチン
+    IEnumerator InvincibilityRoutine()
     {
-        if (flashCoroutine != null)
-        {
-            StopCoroutine(flashCoroutine);
-        }
-        flashCoroutine = StartCoroutine(FlashRoutine());
-    }
+        isInvincible = true;
 
-    IEnumerator FlashRoutine()
-    {
         // マテリアルの色を赤に変更
         for (int i = 0; i < enemyMaterials.Count; i++)
         {
@@ -422,10 +430,20 @@ public class EnemyController : MonoBehaviour, ISnapshotable, IFreezable
             }
         }
 
-        yield return new WaitForSeconds(flashDuration);
+        // 赤色点滅時間待機（通常の点滅時間が無敵時間より短い場合は途中で色だけ戻す）
+        if (flashDuration < invincibilityDuration)
+        {
+            yield return new WaitForSeconds(flashDuration);
+            ResetColor();
+            yield return new WaitForSeconds(invincibilityDuration - flashDuration);
+        }
+        else
+        {
+            yield return new WaitForSeconds(invincibilityDuration);
+            ResetColor();
+        }
 
-        // 元の色に戻す
-        ResetColor();
+        isInvincible = false;
     }
 
     void ResetColor()
@@ -445,11 +463,9 @@ public class EnemyController : MonoBehaviour, ISnapshotable, IFreezable
         currentHealth = 0;
 
         // 死亡時に点滅を停止し元の色に戻す
-        if (flashCoroutine != null)
-        {
-            StopCoroutine(flashCoroutine);
-        }
+        StopAllCoroutines();
         ResetColor();
+        isInvincible = false;
 
         // Destroyではなく非アクティブ化することで、
         // 巻き戻し(Rキー)でセーブ時点が「生存中」なら復活できるようにする
@@ -554,12 +570,10 @@ public class EnemyController : MonoBehaviour, ISnapshotable, IFreezable
             return;
         }
 
-        // スナップショット復元時にも色をリセット
-        if (flashCoroutine != null)
-        {
-            StopCoroutine(flashCoroutine);
-        }
+        // スナップショット復元時にもコルーチンを停止して色と無敵をリセット
+        StopAllCoroutines();
         ResetColor();
+        isInvincible = false;
 
         transform.position = state.position;
         transform.rotation = state.rotation;
