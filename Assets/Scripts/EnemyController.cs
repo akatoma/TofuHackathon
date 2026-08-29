@@ -451,12 +451,13 @@ public class EnemyController : MonoBehaviour, ISnapshotable, IFreezable
         }
         ResetColor();
 
+        // イベント発火を非アクティブ化の前に行う（購読側でタグチェックなどを実行するため）
+        OnEnemyDefeated?.Invoke(gameObject);
+
         // Destroyではなく非アクティブ化することで、
         // 巻き戻し(Rキー)でセーブ時点が「生存中」なら復活できるようにする
         gameObject.SetActive(false);
         Debug.Log($"{name} defeated.");
-
-        OnEnemyDefeated?.Invoke(gameObject);
     }
 
     void Attack()
