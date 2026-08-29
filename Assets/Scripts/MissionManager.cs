@@ -5,7 +5,7 @@ using TMPro;
 // シーン内の空オブジェクト(例: "MissionManager")にアタッチする。
 // ミッション: 「Enemy」タグの付いたオブジェクトを指定数討伐する。
 // クリアすると、生存している「Ally」タグの数とクリアタイムをリザルトとして表示する。
-public class MissionManager : MonoBehaviour
+public class MissionManager : MonoBehaviour, ISnapshotable
 {
     // ミッションクリアの瞬間に通知される(ゲージなど、他のシステムが購読するだけでよい)
     public static event System.Action OnMissionCleared;
@@ -42,6 +42,15 @@ public class MissionManager : MonoBehaviour
     // ノベル演出の再生中も、演出終了後まで結果情報を保持しておく
     int pendingSurvivorCount;
     float pendingClearTime;
+
+    // セーブ/巻き戻しで保存したい情報。
+    // isClearedもキルカウントと一緒に保存しないと、クリア後に巻き戻した時
+    // ミッションパネルが出ない/以降のキルがカウントされない、といった不整合が起きる
+    class State
+    {
+        public int defeatedCount;
+        public bool isCleared;
+    }
 
     void Start()
     {
@@ -122,7 +131,6 @@ public class MissionManager : MonoBehaviour
         float clearTime = Time.time - startTime;
 
         StartCoroutine(VictorySlowMotionRoutine(survivorCount, clearTime));
-        OnMissionCleared?.Invoke();
     }
 
     IEnumerator VictorySlowMotionRoutine(int survivorCount, float clearTime)
@@ -187,5 +195,41 @@ public class MissionManager : MonoBehaviour
         }
 
         mailSender.SendClearMail(emailInputField.text);
+    }
+
+    //保存
+    public object CaptureSnapshot()
+    {
+        return new State
+        {
+            defeatedCount = defeatedCount,
+            isCleared = isCleared
+        };
+    }
+
+    //復元
+    public void RestoreSnapshot(object snapshot)
+    {
+        if (snapshot is not State state)
+        {
+            return;
+        }
+
+        defeatedCount = state.defeatedCount;
+        isCleared = state.isCleared;
+        isPaused = isCleared;
+
+        UpdateMissionText();
+
+        if (missionPanel != null)
+        {
+            missionPanel.SetActive(!isCleared);
+        }
+        if (resultPanel != null)
+        {
+            // クリア演出(スロー/ノベル/送信フォーム)は巻き戻しでは再生しないため、
+            // isClearedが復元されてもリザルト画面は開かない
+            resultPanel.SetActive(false);
+        }
     }
 }
