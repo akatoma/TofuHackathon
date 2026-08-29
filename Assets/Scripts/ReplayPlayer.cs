@@ -112,7 +112,7 @@ public class ReplayPlayer : MonoBehaviour
             {
                 if (enemy != null)
                 {
-                    Destroy(enemy.gameObject);
+                    enemy.gameObject.SetActive(false);
                 }
             }
         }
